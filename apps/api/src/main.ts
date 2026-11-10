@@ -14,7 +14,8 @@ try {
 const { AppModule } = await import('./app.module.js');
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { rawBody: true }) // raw body is needed to check Paystack's signature;
+  // rawBody is needed to check Paystack's webhook signature
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.setGlobalPrefix('v1');
   app.enableCors({ origin: true });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
