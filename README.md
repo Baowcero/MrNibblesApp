@@ -21,3 +21,23 @@ Bakery ordering and delivery platform for Mr Nibbles, Ogbomoso.
 - Booking closes 8:30 AM Mon to Fri (Africa/Lagos). No cancellations, no refunds.
 - Customers sign up themselves and staff approve them before they can order.
 - Ledger tables are append-only (enforced by `constraints.sql`).
+
+## API smoke test (auth)
+With the API running (`npm run api`, port 4000):
+
+```bash
+curl localhost:4000/v1/health
+curl "localhost:4000/v1/areas" | head -c 300
+curl "localhost:4000/v1/auth/signup/businesses?q=zin"
+
+# sign up as a new customer (pending approval)
+curl -X POST localhost:4000/v1/auth/signup -H 'content-type: application/json' -d '{
+  "phone":"08012345678","password":"Bread2026","full_name":"Test Customer",
+  "business_name":"Test Shop","address":"12 Test Street","area_id":"<an id from /v1/areas>"}'
+
+# log in, then call /v1/me with the access_token
+curl -X POST localhost:4000/v1/auth/login -H 'content-type: application/json' \
+  -d '{"phone":"08012345678","password":"Bread2026"}'
+curl localhost:4000/v1/me -H "authorization: Bearer <access_token>"
+```
+Staff accounts do not exist yet; the first CEO account is created by the seed script (next step).
