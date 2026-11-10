@@ -40,4 +40,4 @@ curl -X POST localhost:4000/v1/auth/login -H 'content-type: application/json' \
   -d '{"phone":"08012345678","password":"Bread2026"}'
 curl localhost:4000/v1/me -H "authorization: Bearer <access_token>"
 ```
-Staff accounts do not exist yet; the first CEO account is created by the seed script (next step).
+Staff accounts do not exist yet; the first CEO account is created by the seed script from SEED_CEO_PHONE and SEED_CEO_PASSWORD in apps/api/.env.

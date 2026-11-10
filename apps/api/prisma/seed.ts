@@ -2,6 +2,7 @@
 // Loads roles, products, areas, raw materials and the 75 known customers as 'unclaimed'
 // records. Customers sign up themselves with their own phone, pick their business, and staff approve.
 import { PrismaClient, RoleCode } from '@prisma/client';
+import argon2 from 'argon2';
 import data from './seed-data.json';
 
 const prisma = new PrismaClient();
@@ -40,6 +41,28 @@ async function main() {
         data: { businessName: c.businessName, status: 'unclaimed', source: 'import' },
       });
     }
+  }
+
+  // First CEO account so someone can approve customers. Set SEED_CEO_PHONE and SEED_CEO_PASSWORD
+  // in apps/api/.env (phone as +234XXXXXXXXXX). The CEO must choose a new password on first login.
+  const ceoPhone = process.env.SEED_CEO_PHONE;
+  const ceoPassword = process.env.SEED_CEO_PASSWORD;
+  if (ceoPhone && ceoPassword) {
+    const ceoRole = await prisma.role.findUniqueOrThrow({ where: { code: 'ceo' } });
+    const existing = await prisma.user.findUnique({ where: { phone: ceoPhone } });
+    if (!existing) {
+      await prisma.user.create({
+        data: {
+          phone: ceoPhone,
+          passwordHash: await argon2.hash(ceoPassword),
+          fullName: process.env.SEED_CEO_NAME ?? 'CEO',
+          mustChangePassword: true,
+          roles: { create: { roleId: ceoRole.id } },
+        },
+      });
+    }
+  } else {
+    console.log('SEED_CEO_PHONE / SEED_CEO_PASSWORD not set: no staff account created.');
   }
 
   await prisma.bookingSetting.create({
