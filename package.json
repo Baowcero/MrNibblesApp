@@ -1,0 +1,14 @@
+{
+  "name": "mr-nibbles",
+  "private": true,
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "api": "npm --prefix apps/api run start:dev",
+    "mobile": "npm --prefix apps/mobile run start",
+    "dashboard": "npm --prefix apps/dashboard run dev",
+    "install:all": "npm --prefix apps/api install && npm --prefix apps/mobile install && npm --prefix apps/dashboard install",
+    "prisma:migrate": "npm --prefix apps/api run prisma:migrate",
+    "prisma:seed": "npm --prefix apps/api run prisma:seed"
+  }
+}

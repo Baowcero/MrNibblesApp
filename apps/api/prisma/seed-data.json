@@ -1,0 +1,423 @@
+{
+  "rawMaterials": [
+    {
+      "name": "yeast",
+      "unit": null
+    },
+    {
+      "name": "flour",
+      "unit": null
+    },
+    {
+      "name": "sugar",
+      "unit": null
+    },
+    {
+      "name": "salt",
+      "unit": null
+    },
+    {
+      "name": "preservative",
+      "unit": null
+    },
+    {
+      "name": "enzyme",
+      "unit": null
+    },
+    {
+      "name": "mix fruit",
+      "unit": null
+    },
+    {
+      "name": "butter",
+      "unit": null
+    },
+    {
+      "name": "oil",
+      "unit": null
+    }
+  ],
+  "areas": [
+    "HOSPITAL",
+    "STARLITE",
+    "AKALA",
+    "TAKI",
+    "ORA",
+    "OWODE",
+    "2ND OWODE",
+    "JOY",
+    "OGBEGUN",
+    "FAVOUR",
+    "2ND OGBEGUN",
+    "2ND INEC",
+    "IROYIN AYO",
+    "AGBOWO",
+    "2ND AGBOWO",
+    "OLA MUMMY INEC",
+    "INEC",
+    "3RD INEC",
+    "EGBEJI",
+    "2ND EGBEJI",
+    "ANU EGBEJI",
+    "GRACE",
+    "2ND GRACE",
+    "FLO J",
+    "EZE FAB",
+    "ESTHER BOREHOLE HOSPITAL",
+    "PRECIOUS",
+    "TIWADAYO",
+    "MALIK",
+    "MASHA",
+    "PEACE",
+    "2ND BB",
+    "ADANIMAGBAGBE",
+    "MUMMY PROMISE",
+    "SABO",
+    "FAROOK",
+    "ENIAFELAMO",
+    "KAARA",
+    "COMPUTER",
+    "FIGOR",
+    "YIBO",
+    "JUBILEE",
+    "2ND OLUKOKO",
+    "2ND TEACHER",
+    "NEW SEMIARY",
+    "3RD BOVAS",
+    "ALABAA",
+    "HOBABY",
+    "ABAA DAMMY",
+    "VICTORIA",
+    "EMMA",
+    "GOSHEN",
+    "AROJE BAPTIST",
+    "WASO",
+    "2ND WASO",
+    "3RD WASO",
+    "SAW MILL",
+    "2ND SAW MILL",
+    "SAW MILL DANIEL",
+    "ELESO",
+    "TOTAL",
+    "OLASEU",
+    "ZAINAB",
+    "COVENANT",
+    "DOMINION",
+    "DOYIN",
+    "SIRWALA",
+    "HANNAH",
+    "LANRE",
+    "AROJE",
+    "ADELANI",
+    "BOVAS",
+    "AIZAB",
+    "ELEHA",
+    "ABAA COMPLEX",
+    "ABAA HOLA",
+    "MARY EXPRESS",
+    "DESCANSLE",
+    "IRAWO"
+  ],
+  "customers": [
+    {
+      "businessName": "ZINAT",
+      "group": 1
+    },
+    {
+      "businessName": "NUSMAG",
+      "group": 1
+    },
+    {
+      "businessName": "2ND CROWN",
+      "group": 1
+    },
+    {
+      "businessName": "ODOORU",
+      "group": 1
+    },
+    {
+      "businessName": "3 FEDERAL",
+      "group": 1
+    },
+    {
+      "businessName": "NEPA",
+      "group": 1
+    },
+    {
+      "businessName": "FEDERAL",
+      "group": 1
+    },
+    {
+      "businessName": "2ND FEDERAL",
+      "group": 1
+    },
+    {
+      "businessName": "2ND ODOORU",
+      "group": 1
+    },
+    {
+      "businessName": "4TH TAKI",
+      "group": 1
+    },
+    {
+      "businessName": "3RD TAKI",
+      "group": 1
+    },
+    {
+      "businessName": "FAITH",
+      "group": 1
+    },
+    {
+      "businessName": "MUSALAT",
+      "group": 1
+    },
+    {
+      "businessName": "2ND ALAJIKI",
+      "group": 1
+    },
+    {
+      "businessName": "2ND PEACE TIDINGS",
+      "group": 1
+    },
+    {
+      "businessName": "ALAJIKI TIDINGS",
+      "group": 1
+    },
+    {
+      "businessName": "BOWEN SEMIARY",
+      "group": 1
+    },
+    {
+      "businessName": "3RD NEW SEMIARY",
+      "group": 1
+    },
+    {
+      "businessName": "2ND CARETAKER",
+      "group": 1
+    },
+    {
+      "businessName": "YISA",
+      "group": 1
+    },
+    {
+      "businessName": "2ND ESTATE",
+      "group": 1
+    },
+    {
+      "businessName": "2ND HABIB",
+      "group": 1
+    },
+    {
+      "businessName": "3RD JK",
+      "group": 1
+    },
+    {
+      "businessName": "7TH JK",
+      "group": 1
+    },
+    {
+      "businessName": "2ND SANUAJE",
+      "group": 1
+    },
+    {
+      "businessName": "2ND CAC",
+      "group": 1
+    },
+    {
+      "businessName": "OGUNGBA",
+      "group": 2
+    },
+    {
+      "businessName": "BETHEL",
+      "group": 2
+    },
+    {
+      "businessName": "OLOMI",
+      "group": 2
+    },
+    {
+      "businessName": "4TH SHALOM",
+      "group": 2
+    },
+    {
+      "businessName": "BAUCHI",
+      "group": 2
+    },
+    {
+      "businessName": "2ND BAUCHI",
+      "group": 2
+    },
+    {
+      "businessName": "SHALOM",
+      "group": 2
+    },
+    {
+      "businessName": "2ND SHALOM",
+      "group": 2
+    },
+    {
+      "businessName": "T & K",
+      "group": 2
+    },
+    {
+      "businessName": "2ND T & K",
+      "group": 2
+    },
+    {
+      "businessName": "3RD T & K",
+      "group": 2
+    },
+    {
+      "businessName": "SURPRISE",
+      "group": 2
+    },
+    {
+      "businessName": "LOWCOST",
+      "group": 2
+    },
+    {
+      "businessName": "TEACHER",
+      "group": 2
+    },
+    {
+      "businessName": "2ND TEACHER",
+      "group": 2
+    },
+    {
+      "businessName": "NEW SEMIARY",
+      "group": 2
+    },
+    {
+      "businessName": "SUNDAY",
+      "group": 2
+    },
+    {
+      "businessName": "ALADE",
+      "group": 2
+    },
+    {
+      "businessName": "3RD YISA",
+      "group": 2
+    },
+    {
+      "businessName": "3RD ESTAE",
+      "group": 2
+    },
+    {
+      "businessName": "2ND CALIFORNIA",
+      "group": 2
+    },
+    {
+      "businessName": "2ND JK",
+      "group": 2
+    },
+    {
+      "businessName": "8JK",
+      "group": 2
+    },
+    {
+      "businessName": "3RD SANUAJE",
+      "group": 2
+    },
+    {
+      "businessName": "QUDUS",
+      "group": 3
+    },
+    {
+      "businessName": "OYEWUSI",
+      "group": 3
+    },
+    {
+      "businessName": "2ND OYEWUSI",
+      "group": 3
+    },
+    {
+      "businessName": "BLIND CENTER",
+      "group": 3
+    },
+    {
+      "businessName": "2ND BLIND CENTER",
+      "group": 3
+    },
+    {
+      "businessName": "FASHINA",
+      "group": 3
+    },
+    {
+      "businessName": "RANDA",
+      "group": 3
+    },
+    {
+      "businessName": "3RD OLAOLU",
+      "group": 3
+    },
+    {
+      "businessName": "OLAOLU",
+      "group": 3
+    },
+    {
+      "businessName": "NEW RANDA",
+      "group": 3
+    },
+    {
+      "businessName": "SAOYAD",
+      "group": 3
+    },
+    {
+      "businessName": "2ND SAOYAD",
+      "group": 3
+    },
+    {
+      "businessName": "3RD SEMINARY",
+      "group": 3
+    },
+    {
+      "businessName": "GLAD TIDINGS",
+      "group": 3
+    },
+    {
+      "businessName": "2ND GLAD",
+      "group": 3
+    },
+    {
+      "businessName": "3RD GLAD",
+      "group": 3
+    },
+    {
+      "businessName": "2ND NEW",
+      "group": 3
+    },
+    {
+      "businessName": "CARETAKER",
+      "group": 3
+    },
+    {
+      "businessName": "JANGO",
+      "group": 3
+    },
+    {
+      "businessName": "2ND YISA",
+      "group": 3
+    },
+    {
+      "businessName": "HABIB",
+      "group": 3
+    },
+    {
+      "businessName": "IDIORO",
+      "group": 3
+    },
+    {
+      "businessName": "4TH JK",
+      "group": 3
+    },
+    {
+      "businessName": "SANUAJE",
+      "group": 3
+    },
+    {
+      "businessName": "CAC",
+      "group": 3
+    }
+  ]
+}
