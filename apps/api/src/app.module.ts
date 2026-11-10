@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './common/jwt-auth.guard.js';
 import { RolesGuard } from './common/roles.guard.js';
 import { HealthController } from './health/health.controller.js';
 import { OrdersModule } from './orders/orders.module.js';
+import { PaymentsModule } from './payments/payments.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { StaffCustomersModule } from './staff/customers.module.js';
 
@@ -22,6 +23,7 @@ import { StaffCustomersModule } from './staff/customers.module.js';
     BookingModule,
     CatalogModule,
     OrdersModule,
+    PaymentsModule,
     StaffCustomersModule,
   ],
   controllers: [HealthController],

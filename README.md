@@ -54,3 +54,10 @@ curl -X POST localhost:4000/v1/orders -H "authorization: Bearer $TOKEN" -H 'cont
   -d '{"fulfilment":"delivery","location_id":"<from /v1/me>","payment_method":"office_cash","items":[{"product_id":"<id>","quantity":40}]}'
 ```
 Approve a customer as CEO: `POST /v1/staff/customers/<customer id>/approve` (list them with `GET /v1/staff/customers?status=pending_approval`).
+
+### Paystack (test mode)
+1. Put the test secret key (`sk_test_...`) in `apps/api/.env` as `PAYSTACK_SECRET_KEY`, restart the API.
+2. Create an order with `"payment_method":"paystack"`, then `POST /v1/orders/<id>/pay` returns `authorization_url`. Open it in a browser and pay with a Paystack test card.
+3. Then call `POST /v1/orders/<id>/pay/verify`: the order becomes `paid` (works without the webhook).
+4. Webhook: expose the API with `ngrok http 4000`, and set `https://<ngrok-id>.ngrok-free.app/v1/webhooks/paystack` as the test webhook URL in the Paystack dashboard.
+5. Cash: `POST /v1/staff/payments/cash` with `{"order_no":"MN-..."}` as accounts or CEO, for an order placed with `office_cash`.
