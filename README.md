@@ -41,3 +41,16 @@ curl -X POST localhost:4000/v1/auth/login -H 'content-type: application/json' \
 curl localhost:4000/v1/me -H "authorization: Bearer <access_token>"
 ```
 Staff accounts do not exist yet; the first CEO account is created by the seed script from SEED_CEO_PHONE and SEED_CEO_PASSWORD in apps/api/.env.
+
+### Orders (smoke test)
+```bash
+TOKEN=<access_token>          # a customer whose status is active (approve one first, see below)
+curl localhost:4000/v1/booking/status -H "authorization: Bearer $TOKEN"
+curl localhost:4000/v1/products -H "authorization: Bearer $TOKEN"
+curl -X POST localhost:4000/v1/orders/quote -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"payment_method":"paystack","items":[{"product_id":"<id>","quantity":40}]}'
+curl -X POST localhost:4000/v1/orders -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"fulfilment":"delivery","location_id":"<from /v1/me>","payment_method":"office_cash","items":[{"product_id":"<id>","quantity":40}]}'
+```
+Approve a customer as CEO: `POST /v1/staff/customers/<customer id>/approve` (list them with `GET /v1/staff/customers?status=pending_approval`).

@@ -12,12 +12,22 @@ async function main() {
     await prisma.role.upsert({ where: { code }, update: {}, create: { code } });
   }
 
-  // One price for all customers. Replace 0 with the real price in kobo when the client confirms.
+  // One price for all customers.
   for (const p of [
     { code: 'sliced', name: 'Sliced bread' },
     { code: 'unsliced', name: 'Unsliced bread' },
   ]) {
     await prisma.product.upsert({ where: { code: p.code }, update: {}, create: p });
+  }
+
+  // ₦1,000 per loaf for both products (confirmed by the client). Prices are kobo.
+  for (const code of ['sliced', 'unsliced']) {
+    const product = await prisma.product.findUniqueOrThrow({ where: { code } });
+    if ((await prisma.productPrice.count({ where: { productId: product.id } })) === 0) {
+      await prisma.productPrice.create({
+        data: { productId: product.id, unitPriceKobo: 100_000n, effectiveFrom: new Date('2026-01-01T00:00:00Z') },
+      });
+    }
   }
 
   for (const name of data.areas) {
