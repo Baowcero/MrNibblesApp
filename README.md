@@ -86,3 +86,21 @@ curl -s -X POST localhost:4000/v1/distributor/deliveries/<delivery id>/confirm -
   -H 'content-type: application/json' -d '{"photo_keys":["<key>"]}'
 ```
 Confirming without a photo is refused. `GET /v1/files?key=<key>` shows a photo to staff.
+
+## Smoke test: production, inventory, issues, reconciliation
+
+Create a production and a store keeper user first (CEO token, `POST /v1/staff/users`, roles `["production"]` / `["store_keeper"]`).
+
+    # store keeper: add a material, receive stock, count
+    POST /v1/staff/inventory/materials   {"name":"flour","unit":"kg","reorder_level":50}
+    POST /v1/staff/inventory/receipts    {"items":[{"raw_material_id":"<id>","quantity":200}]}
+    POST /v1/staff/inventory/counts      {"counts":[{"raw_material_id":"<id>","counted_quantity":195}]}   # variance is shown
+    # production: record the morning run (bread made + flour used)
+    POST /v1/staff/production/runs       {"run_type":"morning","outputs":[{"product_id":"<id>","quantity":300}],"materials":[{"raw_material_id":"<id>","quantity":40}]}
+    GET  /v1/staff/inventory/materials ; GET /v1/staff/inventory/bread
+    # issue on an order, then reconcile
+    POST /v1/orders/<order_id>/issues    {"issue_type":"damaged","quantity":3,"note":"crushed in transit"}
+    POST /v1/staff/reconciliation/open   {}
+    GET  /v1/staff/reconciliation
+    POST /v1/staff/reconciliation/<id>/issues/<issue_id>/settle {"resolution":"credited 3 loaves"}
+    POST /v1/staff/reconciliation/<id>/close {}

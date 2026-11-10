@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { InventoryModule } from './inventory/inventory.module.js';
+import { IssuesModule } from './issues/issues.module.js';
+import { ReconciliationModule } from './reconciliation/reconciliation.module.js';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AreasModule } from './areas/areas.module.js';
 import { AuditModule } from './audit/audit.module.js';
@@ -18,7 +21,7 @@ import { StaffModule } from './staff/staff.module.js';
 import { StorageModule } from './storage/storage.module.js';
 
 @Module({
-  imports: [
+  imports: [InventoryModule, IssuesModule, ReconciliationModule, 
     PrismaModule,
     AuditModule,
     AuthModule,
