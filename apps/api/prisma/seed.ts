@@ -65,9 +65,11 @@ async function main() {
     console.log('SEED_CEO_PHONE / SEED_CEO_PASSWORD not set: no staff account created.');
   }
 
-  await prisma.bookingSetting.create({
-    data: { effectiveFrom: new Date('2026-01-01T00:00:00Z') },
-  });
+  if ((await prisma.bookingSetting.count()) === 0) {
+    await prisma.bookingSetting.create({
+      data: { effectiveFrom: new Date('2026-01-01T00:00:00Z') },
+    });
+  }
 }
 
 main().then(() => prisma.$disconnect()).catch(async (e) => {
