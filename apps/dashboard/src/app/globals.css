@@ -1,26 +1,32 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* V2 style: warm cream, deep navy text, brand blue for actions, orange as the highlight.
+   These values are the one place to change when the final Figma tokens are confirmed. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-cream: #fbf5ea;
+  --color-cream-2: #f3eadb;
+  --color-line: #e8dcc6;
+  --color-card: #ffffff;
+  --color-navy: #14213d;
+  --color-muted: #566078;
+  --color-brand: #2358d6;
+  --color-brand-dark: #1a44a8;
+  --color-brand-soft: #e4ecff;
+  --color-orange: #f0831d;
+  --color-orange-soft: #fde9d2;
+  --color-ok: #1b7f55;
+  --color-ok-soft: #dcf3e8;
+  --color-bad: #c93c3c;
+  --color-bad-soft: #fbe1e1;
+  --color-warn: #a86400;
+  --color-warn-soft: #fdf0cf;
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --shadow-soft: 0 1px 2px rgba(20, 33, 61, 0.05), 0 8px 24px rgba(20, 33, 61, 0.07);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+html { background: var(--color-cream); color: var(--color-navy); }
+body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
+:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
+@media print { aside, .no-print { display: none !important; } }

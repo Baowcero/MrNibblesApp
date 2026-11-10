@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { CustomerStatus, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service.js';
 import { AppError } from '../common/app-error.js';
+import { queueNotification } from '../notifications/queue.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { ListCustomersDto } from './customers.dto.js';
 
@@ -96,7 +97,11 @@ export class StaffCustomersService {
       after: { status: to, ...(extra.rejectionNote ? { note: String(extra.rejectionNote) } : {}) },
       ip,
     });
-    // TODO(notifications module): push the customer when approved or rejected.
+    if (to === 'active') {
+      await queueNotification(this.prisma, { userId: customer.userId, type: 'account_update', title: 'Account approved', body: 'Your Mr Nibbles account is approved. You can start ordering.' });
+    } else if (to === 'rejected') {
+      await queueNotification(this.prisma, { userId: customer.userId, type: 'account_update', title: 'Account not approved', body: 'We could not approve your account. Please contact the bakery.' });
+    }
     return { id, status: to };
   }
 }

@@ -45,7 +45,7 @@ export class PaymentsService {
     const digits = (order.customer.user?.phone ?? '').replace(/\D/g, '');
     const domain = process.env.PAYSTACK_EMAIL_DOMAIN ?? 'customers.mrnibbles.app';
     const data = await this.paystack.initialize({
-      email: `${digits || order.customer.id}@${domain}`, // Paystack needs an email; customers only have a phone
+      email: order.customer.user?.email ?? `${digits || order.customer.id}@${domain}`, // the customer's own email if they gave one, otherwise one made from the phone number
       amountKobo: Number(payment.amountKobo),
       reference,
       callbackUrl: process.env.PAYSTACK_CALLBACK_URL,

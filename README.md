@@ -104,3 +104,24 @@ Create a production and a store keeper user first (CEO token, `POST /v1/staff/us
     GET  /v1/staff/reconciliation
     POST /v1/staff/reconciliation/<id>/issues/<issue_id>/settle {"resolution":"credited 3 loaves"}
     POST /v1/staff/reconciliation/<id>/close {}
+
+## Smoke test: notifications, savings, overview, offline sync
+
+    POST /v1/devices            {"platform":"android","push_token":"<any 20+ character string in dev>"}   # any logged-in user
+    GET  /v1/notifications      # approve a customer or move an order, then check: the message is listed and logged by the API ("[dev] push to ...")
+    GET  /v1/savings            # customer: balance and ledger
+    GET  /v1/staff/overview     # ceo or accounts
+    POST /v1/distributor/sync   {"events":[{"client_event_id":"a1","type":"start","delivery_id":"<id>","occurred_at":"2026-11-16T09:10:00Z"}]}
+                                # send the same batch twice: every event comes back "ok" the second time too
+
+Booking reminders go out at 06:30, 07:30 and 08:00 (Mon to Fri) and 17:00 and 18:00 on Fridays (for Saturday), only to active customers who have not ordered yet.
+For real push: `cd apps/api && npm i firebase-admin --legacy-peer-deps`, then set FIREBASE_SERVICE_ACCOUNT_JSON in .env.
+
+## Smoke test: payment method, CSV import, login limit
+
+    POST /v1/orders/<id>/payment-method   {"payment_method":"office_cash"}    # customer, only while the order is unpaid; the fee is added or removed
+    POST /v1/staff/customers/import       {"csv":"business_name\nMama T Bakery\nJoy Store","dry_run":true}   # sales or ceo; drop dry_run to save
+    # 6 wrong passwords for one phone within 15 minutes returns 429 too_many_attempts with retry_after_seconds
+
+One-time setup after pulling this: `cd apps/api && npm i ioredis --legacy-peer-deps` (rate limit uses Redis when it is running, memory otherwise),
+then `npm run prisma:migrate` and name the migration `notification_account_update`.

@@ -47,7 +47,7 @@ export class IssuesService {
       photoOwner = order.delivery.distributorId;
     } else if (user.roles.includes('customer')) {
       if (order.customer.userId !== user.id) throw new AppError(404, 'order_not_found', 'Order not found');
-      if (!['delivered', 'failed', 'out_for_delivery', 'ready_for_pickup', 'collected'].includes(order.status)) {
+      if (!['out_for_delivery', 'delivered', 'delivery_failed', 'ready', 'collected'].includes(order.status)) {
         throw new AppError(409, 'too_early', 'You can report a problem once your order is on its way or delivered');
       }
       role = 'customer';

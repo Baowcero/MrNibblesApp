@@ -3,6 +3,7 @@ import argon2 from 'argon2';
 import { Prisma, type RoleCode } from '@prisma/client';
 import { AppError } from '../common/app-error.js';
 import { normalizePhone } from '../common/phone.js';
+import { RateLimiter } from '../common/rate-limit.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { ChangePasswordDto, LoginDto, SignupDto } from './dto.js';
 import { TokensService, hashToken } from './tokens.service.js';
@@ -21,6 +22,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tokens: TokensService,
+    private readonly limiter: RateLimiter,
   ) {}
 
   private roleCodes(user: UserWithRoles): RoleCode[] {
@@ -36,6 +38,7 @@ export class AuthService {
       id: user.id,
       full_name: user.fullName,
       phone: user.phone,
+      email: user.email,
       roles: this.roleCodes(user),
       must_change_password: user.mustChangePassword,
       customer: customer
@@ -52,8 +55,15 @@ export class AuthService {
     });
   }
 
-  async login(dto: LoginDto) {
+  /** 5 wrong passwords per phone and 30 per address in 15 minutes, then a wait. A correct login clears the phone's count. */
+  async login(dto: LoginDto, ip = 'unknown') {
     const phone = normalizePhone(dto.phone);
+    const phoneKey = `login:phone:${phone ?? dto.phone.replace(/\D/g, '')}`;
+    const ipKey = `login:ip:${ip}`;
+    if ((await this.limiter.count(phoneKey)) >= 5 || (await this.limiter.count(ipKey)) >= 30) {
+      const wait = Math.max(await this.limiter.ttl(phoneKey), await this.limiter.ttl(ipKey), 1);
+      throw new AppError(429, 'too_many_attempts', `Too many attempts. Try again in ${Math.ceil(wait / 60)} minute(s).`, { retry_after_seconds: wait });
+    }
     const user = phone
       ? await this.prisma.user.findUnique({ where: { phone }, include: WITH_ROLES })
       : null;
@@ -62,12 +72,15 @@ export class AuthService {
       ? await argon2.verify(user.passwordHash, dto.password)
       : (await argon2.verify(await getDummyHash(), dto.password), false);
     if (!user || !valid) {
+      await this.limiter.hit(phoneKey, 900);
+      await this.limiter.hit(ipKey, 900);
       throw new AppError(401, 'invalid_credentials', 'Phone number or password is incorrect');
     }
     if (!user.isActive) {
       throw new AppError(403, 'account_disabled', 'This account has been disabled. Contact Mr Nibbles.');
     }
 
+    await this.limiter.reset(phoneKey);
     await this.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     return { ...(await this.issueFor(user)), user: await this.profile(user) };
   }
@@ -135,6 +148,11 @@ export class AuthService {
     return { ...(await this.issueFor(updated)), user: await this.profile(updated) };
   }
 
+  async updateEmail(userId: string, email: string) {
+    const updated = await this.prisma.user.update({ where: { id: userId }, data: { email: email.trim().toLowerCase() || null }, include: WITH_ROLES });
+    return this.profile(updated);
+  }
+
   async me(userId: string) {
     const user = await this.getUser(userId);
     const profile = await this.profile(user);
@@ -186,6 +204,7 @@ export class AuthService {
         const user = await tx.user.create({
           data: {
             phone,
+            email: dto.email?.trim().toLowerCase() || null,
             passwordHash,
             fullName: dto.full_name.trim(),
             mustChangePassword: false, // they chose their own password

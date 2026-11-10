@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { AppError } from '../common/app-error.js';
 import { lagosToday, toDateOnly } from '../common/dates.js';
 import { OrderStatusService } from '../orders/order-status.service.js';
+import { queueNotification } from '../notifications/queue.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { StaffOrdersQueryDto } from './orders.dto.js';
 
@@ -144,6 +145,10 @@ export class StaffOrdersService {
       await tx.auditLog.create({
         data: { actorUserId: actorId, action: 'order.assign', entityType: 'distributor', entityId: distributorId, after: { order_ids: ids } },
       });
+    });
+    await queueNotification(this.prisma, {
+      userId: distributor.userId, type: 'order_status', title: 'New deliveries',
+      body: ids.length === 1 ? 'You have 1 new delivery.' : `You have ${ids.length} new deliveries.`,
     });
     return { assigned: ids.length, distributor_id: distributorId };
   }

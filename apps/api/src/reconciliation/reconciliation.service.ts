@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service.js';
 import { AppError } from '../common/app-error.js';
 import { isFuture, lagosDayRange, lagosToday, toDateOnly } from '../common/dates.js';
+import { queueNotification } from '../notifications/queue.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { AddItemDto, CloseDayDto, SettleIssueDto } from './dto.js';
 
@@ -55,7 +56,7 @@ export class ReconciliationService {
     });
 
     const orders = await this.prisma.order.findMany({
-      where: { deliveryDate: toDateOnly(d), status: { not: 'cancelled' } },
+      where: { deliveryDate: toDateOnly(d) },
       include: { customer: true, payments: true, items: true },
     });
     const byStatus: Record<string, number> = {};
@@ -68,7 +69,7 @@ export class ReconciliationService {
       byStatus[o.status] = (byStatus[o.status] ?? 0) + 1;
       const qty = o.items.reduce((s, i) => s + i.quantity, 0);
       loaves += qty;
-      const success = o.payments.find((p) => p.status === 'paid');
+      const success = o.payments.find((p) => p.status === 'succeeded');
       if (success) paid[success.method] = (paid[success.method] ?? 0) + Number(success.amountKobo);
       if (['delivered', 'collected'].includes(o.status)) {
         deliveredLoaves += qty;
@@ -150,6 +151,7 @@ export class ReconciliationService {
         data: { reconciliationId: id, orderId: issue.orderId, issueId, itemType: 'issue', quantity: issue.quantity, resolution: dto.resolution, note: dto.note },
       }),
     ]);
+    await queueNotification(this.prisma, { userId: issue.reportedById, type: 'issue_update', title: 'Issue settled', body: `Your reported issue was settled: ${dto.resolution}` });
     await this.audit.log({ actorUserId: actorId, action: 'issue.settle', entityType: 'order_issue', entityId: issueId, after: { resolution: dto.resolution } });
     return { id: issueId, status: 'settled' };
   }

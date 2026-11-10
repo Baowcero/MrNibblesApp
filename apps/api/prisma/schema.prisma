@@ -129,6 +129,7 @@ enum NotificationType {
   booking_reminder
   order_status
   issue_update
+  account_update
 }
 
 enum NotificationStatus {
@@ -142,6 +143,7 @@ enum NotificationStatus {
 model User {
   id                 String    @id @default(uuid()) @db.Uuid
   phone              String    @unique
+  email              String?
   passwordHash       String    @map("password_hash")
   fullName           String    @map("full_name")
   isActive           Boolean   @default(true) @map("is_active")

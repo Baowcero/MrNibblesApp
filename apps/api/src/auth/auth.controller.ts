@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Ip, Patch, Post, Query } from '@nestjs/common';
 import { AllowPasswordChange, AuthUser, CurrentUser, Public } from '../common/auth.js';
 import { AuthService } from './auth.service.js';
 import {
@@ -6,6 +6,7 @@ import {
   ChangePasswordDto,
   LoginDto,
   RefreshDto,
+  UpdateProfileDto,
   SetPasswordDto,
   SignupDto,
 } from './dto.js';
@@ -17,8 +18,8 @@ export class AuthController {
   @Public()
   @HttpCode(200)
   @Post('auth/login')
-  login(@Body() dto: LoginDto) {
-    return this.auth.login(dto);
+  login(@Body() dto: LoginDto, @Ip() ip: string) {
+    return this.auth.login(dto, ip);
   }
 
   @Public()
@@ -64,5 +65,10 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
     return this.auth.me(user.id);
+  }
+
+  @Patch('me')
+  updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
+    return this.auth.updateEmail(user.id, dto.email);
   }
 }

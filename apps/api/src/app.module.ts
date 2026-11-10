@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { RateLimitModule } from './common/rate-limit.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
+import { OverviewModule } from './overview/overview.service.js';
+import { SavingsModule } from './savings/savings.controller.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { IssuesModule } from './issues/issues.module.js';
 import { ReconciliationModule } from './reconciliation/reconciliation.module.js';
@@ -21,7 +25,7 @@ import { StaffModule } from './staff/staff.module.js';
 import { StorageModule } from './storage/storage.module.js';
 
 @Module({
-  imports: [InventoryModule, IssuesModule, ReconciliationModule, 
+  imports: [RateLimitModule, NotificationsModule, SavingsModule, OverviewModule, InventoryModule, IssuesModule, ReconciliationModule, 
     PrismaModule,
     AuditModule,
     AuthModule,

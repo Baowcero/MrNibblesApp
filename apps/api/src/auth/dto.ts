@@ -21,10 +21,19 @@ export class ChangePasswordDto {
   @Matches(PASSWORD_RULE, { message: PASSWORD_MESSAGE }) new_password!: string;
 }
 
+import { IsEmail, ValidateIf } from 'class-validator';
+
+export class UpdateProfileDto {
+  /** Send an empty string to remove the email. */
+  @ValidateIf((o: { email?: string }) => o.email !== '') @IsEmail() @MaxLength(254) email!: string;
+}
+
 export class SignupDto {
   @IsString() @MaxLength(20) phone!: string;
   @Matches(PASSWORD_RULE, { message: PASSWORD_MESSAGE }) password!: string;
   @IsString() @MinLength(2) @MaxLength(100) full_name!: string;
+  /** Optional. Paystack sends the payment receipt here. */
+  @IsOptional() @IsEmail() @MaxLength(254) email?: string;
   /** Pick a pre-loaded business, or leave empty and send business_name for a new one. */
   @IsOptional() @IsUUID() claim_customer_id?: string;
   @IsOptional() @IsString() @MinLength(2) @MaxLength(120) business_name?: string;
