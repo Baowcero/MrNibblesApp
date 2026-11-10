@@ -61,3 +61,28 @@ Approve a customer as CEO: `POST /v1/staff/customers/<customer id>/approve` (lis
 3. Then call `POST /v1/orders/<id>/pay/verify`: the order becomes `paid` (works without the webhook).
 4. Webhook: expose the API with `ngrok http 4000`, and set `https://<ngrok-id>.ngrok-free.app/v1/webhooks/paystack` as the test webhook URL in the Paystack dashboard.
 5. Cash: `POST /v1/staff/payments/cash` with `{"order_no":"MN-..."}` as accounts or CEO, for an order placed with `office_cash`.
+
+### Staff, assigning and deliveries (smoke test)
+All as the CEO (`$CEO` token) unless noted.
+```bash
+# 1. create a distributor (shows a temporary password once)
+curl -s -X POST localhost:4000/v1/staff/users -H "authorization: Bearer $CEO" -H 'content-type: application/json' \
+  -d '{"full_name":"Test Distributor","phone":"08055550001","roles":["distributor"]}'
+
+# 2. today's orders and the distributor list
+curl -s "localhost:4000/v1/staff/orders?date=YYYY-MM-DD" -H "authorization: Bearer $CEO"
+curl -s localhost:4000/v1/staff/distributors -H "authorization: Bearer $CEO"
+
+# 3. assign a PAID delivery order
+curl -s -X POST localhost:4000/v1/staff/orders/assign -H "authorization: Bearer $CEO" -H 'content-type: application/json' \
+  -d '{"order_ids":["<order id>"],"distributor_id":"<distributor id>"}'
+
+# 4. as the distributor: log in (change the temporary password first with /v1/auth/set-password), then
+curl -s "localhost:4000/v1/distributor/deliveries?date=YYYY-MM-DD" -H "authorization: Bearer $DIST"
+curl -s -X POST localhost:4000/v1/distributor/deliveries/<delivery id>/start -H "authorization: Bearer $DIST"
+curl -s -X POST localhost:4000/v1/distributor/uploads/photo -H "authorization: Bearer $DIST" \
+  -H 'content-type: image/jpeg' --data-binary @some-photo.jpg          # returns {"key": "..."}
+curl -s -X POST localhost:4000/v1/distributor/deliveries/<delivery id>/confirm -H "authorization: Bearer $DIST" \
+  -H 'content-type: application/json' -d '{"photo_keys":["<key>"]}'
+```
+Confirming without a photo is refused. `GET /v1/files?key=<key>` shows a photo to staff.

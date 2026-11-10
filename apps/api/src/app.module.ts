@@ -9,10 +9,13 @@ import { ErrorEnvelopeFilter } from './common/error-envelope.filter.js';
 import { JwtAuthGuard } from './common/jwt-auth.guard.js';
 import { RolesGuard } from './common/roles.guard.js';
 import { HealthController } from './health/health.controller.js';
+import { DistributorModule } from './distributor/distributor.module.js';
+import { OrderStatusModule } from './orders/order-status.service.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
-import { StaffCustomersModule } from './staff/customers.module.js';
+import { StaffModule } from './staff/staff.module.js';
+import { StorageModule } from './storage/storage.module.js';
 
 @Module({
   imports: [
@@ -24,7 +27,10 @@ import { StaffCustomersModule } from './staff/customers.module.js';
     CatalogModule,
     OrdersModule,
     PaymentsModule,
-    StaffCustomersModule,
+    OrderStatusModule,
+    StorageModule,
+    StaffModule,
+    DistributorModule,
   ],
   controllers: [HealthController],
   providers: [
