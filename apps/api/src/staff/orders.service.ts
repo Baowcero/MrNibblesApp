@@ -35,6 +35,7 @@ export class StaffOrdersService {
       business_name: o.customer.businessName,
       fulfilment: o.fulfilment,
       status: o.status,
+      placed_at: o.placedAt,
       delivery_date: o.deliveryDate.toISOString().slice(0, 10),
       area: o.location?.area.name ?? null,
       address: o.location?.address ?? null,
@@ -97,12 +98,12 @@ export class StaffOrdersService {
   async detail(orderId: string) {
     const o = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { ...LIST_INCLUDE, history: { orderBy: { changedAt: 'asc' } }, delivery: { include: { photos: true, distributor: { include: { user: true } } } } },
+      include: { ...LIST_INCLUDE, customer: { include: { user: true } }, history: { orderBy: { changedAt: 'asc' } }, delivery: { include: { photos: true, distributor: { include: { user: true } } } } },
     });
     if (!o) throw new AppError(404, 'order_not_found', 'Order not found');
     return {
       ...this.row(o as unknown as OrderRow),
-      customer: { id: o.customerId, business_name: o.customer.businessName },
+      customer: { id: o.customerId, business_name: o.customer.businessName, contact_name: o.customer.user?.fullName ?? null, phone: o.customer.user?.phone ?? null },
       paystack_fee_kobo: Number(o.paystackFeeKobo),
       subtotal_kobo: Number(o.subtotalKobo),
       savings_kobo: Number(o.savingsKobo),

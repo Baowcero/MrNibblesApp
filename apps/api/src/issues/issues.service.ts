@@ -1,3 +1,4 @@
+import { notifyRoles } from '../notifications/queue.js';
 import { Injectable } from '@nestjs/common';
 import { Prisma, RoleCode } from '@prisma/client';
 import { AppError } from '../common/app-error.js';
@@ -78,6 +79,11 @@ export class IssuesService {
         },
         include: INCLUDE,
       });
+      await notifyRoles(this.prisma, ['ceo', 'sales', 'accounts'], {
+        type: 'issue_update',
+        title: 'New issue reported',
+        body: `${order.orderNo} · ${order.customer.businessName}: ${dto.issue_type.replaceAll('_', ' ')}.`,
+      }).catch(() => undefined);
       return presentIssue(created);
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002' && dto.client_event_id) {

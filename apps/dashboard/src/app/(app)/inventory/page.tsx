@@ -1,72 +1,122 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api, errorText } from '@/lib/api';
 import { formatDate, lagosToday } from '@/lib/format';
 import { useQuery } from '@/lib/use-query';
 import { useSession } from '@/lib/session';
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Modal, PageHeader, Skeleton, Table, Td, useToast } from '@/components/ui';
+import { downloadCsv } from '@/lib/export';
+import { Icon } from '@/components/icons';
+import { Badge, Button, Card, EmptyState, ErrorNote, Field, FilterTabs, Input, Modal, PageHeader, Pager, SearchBox, Skeleton, StatCard, Table, Td, useToast } from '@/components/ui';
 
 interface Material { id: string; name: string; unit: string; in_stock: number; reorder_level: number | null; below_reorder_level: boolean; is_active: boolean }
 interface Count { raw_material_id: string; name: string; unit: string; counted: number; expected: number; variance: number; counted_by: string }
 
 type Dialog = null | { kind: 'receive' } | { kind: 'count' } | { kind: 'add' } | { kind: 'adjust'; m: Material } | { kind: 'edit'; m: Material };
+type Tab = 'all' | 'reorder' | 'ok' | 'off';
+const PAGE = 10;
 
 export default function InventoryPage() {
   const { user } = useSession();
   const canEdit = !!user?.roles.some((r) => r === 'store_keeper' || r === 'ceo');
   const [dialog, setDialog] = useState<Dialog>(null);
+  const [tab, setTab] = useState<Tab>('all');
+  const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
   const today = lagosToday();
   const materials = useQuery<{ data: Material[] }>('staff/inventory/materials');
   const counts = useQuery<{ date: string; data: Count[] }>(`staff/inventory/counts?date=${today}`);
-  const rows = materials.data?.data ?? [];
+  const all = useMemo(() => materials.data?.data ?? [], [materials.data]);
   const refresh = () => { void materials.reload(); void counts.reload(); };
   const done = () => { setDialog(null); refresh(); };
+
+  const active = all.filter((m) => m.is_active);
+  const reorder = active.filter((m) => m.below_reorder_level);
+  const tc = useMemo(() => ({ all: all.length, reorder: reorder.length, ok: active.length - reorder.length, off: all.length - active.length }), [all, active, reorder]);
+  const filtered = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return all.filter((m) => (tab === 'all' || (tab === 'reorder' ? m.is_active && m.below_reorder_level : tab === 'ok' ? m.is_active && !m.below_reorder_level : !m.is_active)) && (!t || m.name.toLowerCase().includes(t)));
+  }, [all, tab, q]);
+  useEffect(() => setPage(1), [tab, q]);
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
+  const view = filtered.slice((page - 1) * PAGE, page * PAGE);
+  const cdata = counts.data?.data ?? [];
+  const off = cdata.filter((c) => c.variance !== 0).length;
+  const reset = () => { setTab('all'); setQ(''); };
 
   return (
     <>
       <PageHeader title="Inventory" subtitle="Raw materials. Stock is worked out from everything received, used and adjusted."
-        actions={canEdit && (<>
-          <Button variant="secondary" onClick={() => setDialog({ kind: 'add' })}>Add material</Button>
-          <Button variant="secondary" onClick={() => setDialog({ kind: 'receive' })}>Receive stock</Button>
-          <Button onClick={() => setDialog({ kind: 'count' })}>Daily count</Button>
-        </>)} />
+        actions={<>
+          <Button variant="secondary" disabled={all.length === 0} onClick={() => downloadCsv('inventory.csv', ['Material', 'Unit', 'In stock', 'Reorder level', 'Status'], all.map((m) => [m.name, m.unit, m.in_stock, m.reorder_level, !m.is_active ? 'switched off' : m.below_reorder_level ? 'reorder now' : 'ok']))}><Icon name="download" size={16} />Export CSV</Button>
+          {canEdit && (<>
+            <Button variant="secondary" onClick={() => setDialog({ kind: 'add' })}><Icon name="plus" size={16} />Add material</Button>
+            <Button variant="secondary" onClick={() => setDialog({ kind: 'receive' })}><Icon name="box" size={16} />Receive stock</Button>
+            <Button className="bg-side-2 hover:bg-side" onClick={() => setDialog({ kind: 'count' })}><Icon name="check" size={16} />Daily count</Button>
+          </>)}
+        </>} />
+
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {!materials.data || !counts.data ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-36" />) : (
+          <>
+            <StatCard label="Materials in use" value={String(active.length)} hint={tc.off ? `${tc.off} switched off` : 'All switched on'} />
+            <StatCard label="Need reordering" value={String(reorder.length)} hint={reorder.length ? 'Tap to see which' : 'Everything is above its level'} onClick={reorder.length ? () => setTab('reorder') : undefined} />
+            <StatCard label="Counted today" value={`${cdata.length}/${active.length}`} hint={cdata.length >= active.length && active.length ? 'Count complete' : 'Materials counted so far'} />
+            <StatCard label="Count differences" value={String(off)} hint={cdata.length === 0 ? 'No count yet today' : off ? 'Check these against the records' : 'Everything matches'} />
+          </>
+        )}
+      </div>
+
+      <div className="mb-4"><FilterTabs<Tab> value={tab} onChange={setTab} tabs={[{ key: 'all', label: 'All materials', count: tc.all }, { key: 'reorder', label: 'Reorder now', count: tc.reorder }, { key: 'ok', label: 'In stock', count: tc.ok }, { key: 'off', label: 'Switched off', count: tc.off }]} /></div>
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,3fr)_auto]">
+        <SearchBox value={q} onChange={setQ} placeholder="Search materials" />
+        <button onClick={reset} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-line bg-white px-5 text-sm font-semibold hover:bg-cream-2"><Icon name="reset" size={16} />Reset</button>
+      </div>
 
       {materials.error && <div className="mb-4"><ErrorNote message={materials.error} onRetry={materials.reload} /></div>}
-      <Card>
-        {!materials.data ? <div className="space-y-3 p-6">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
-          : rows.length === 0 ? <EmptyState title="No raw materials yet" text="Add the materials the bakery uses, then receive stock." /> : (
-            <Table head={['Material', 'In stock', 'Reorder level', 'Status', '']}>
-              {rows.map((m) => (
-                <tr key={m.id} className={m.is_active ? '' : 'opacity-50'}>
-                  <Td className="font-semibold capitalize">{m.name}</Td>
-                  <Td><span className="font-display text-xl font-bold">{m.in_stock}</span> <span className="text-muted">{m.unit}</span></Td>
-                  <Td>{m.reorder_level ?? '—'}</Td>
-                  <Td>{!m.is_active ? <Badge>Switched off</Badge> : m.below_reorder_level ? <Badge tone="bad">Reorder now</Badge> : <Badge tone="ok">OK</Badge>}</Td>
-                  <Td>{canEdit && <div className="flex justify-end gap-2"><Button size="sm" variant="ghost" onClick={() => setDialog({ kind: 'adjust', m })}>Adjust</Button><Button size="sm" variant="ghost" onClick={() => setDialog({ kind: 'edit', m })}>Edit</Button></div>}</Td>
-                </tr>
-              ))}
-            </Table>
-          )}
-      </Card>
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div>
+          <Card className="p-5">
+            <h2 className="text-lg font-bold">Raw materials</h2>
+            <p className="mb-4 text-xs text-muted">Current stock against each reorder level</p>
+            {!materials.data ? <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10" />)}</div>
+              : filtered.length === 0 ? <EmptyState title={all.length === 0 ? 'No raw materials yet' : 'No materials match'} text={all.length === 0 ? 'Add the materials the bakery uses, then receive stock.' : 'Try another tab or search.'} /> : (
+                <div className="overflow-hidden rounded-xl">
+                  <Table head={['Material', 'In stock', 'Reorder level', 'Status', '']}>
+                    {view.map((m) => (
+                      <tr key={m.id} className={m.is_active ? '' : 'opacity-50'}>
+                        <Td className="font-semibold capitalize">{m.name}</Td>
+                        <Td><span className="font-bold tnum">{m.in_stock}</span> <span className="text-muted">{m.unit}</span></Td>
+                        <Td className="tnum">{m.reorder_level ?? '—'}</Td>
+                        <Td>{!m.is_active ? <Badge>Switched off</Badge> : m.below_reorder_level ? <Badge tone="bad">Reorder now</Badge> : <Badge tone="ok">OK</Badge>}</Td>
+                        <Td>{canEdit && <div className="flex justify-end gap-1"><Button size="sm" variant="ghost" onClick={() => setDialog({ kind: 'adjust', m })}>Adjust</Button><Button size="sm" variant="ghost" onClick={() => setDialog({ kind: 'edit', m })}>Edit</Button></div>}</Td>
+                      </tr>
+                    ))}
+                  </Table>
+                </div>
+              )}
+          </Card>
+          <Pager page={page} pages={pages} total={filtered.length} size={PAGE} onPage={setPage} noun="materials" />
+        </div>
 
-      <Card className="mt-6">
-        <div className="p-6 pb-2"><h2 className="text-lg font-bold">Today&apos;s count</h2><p className="text-xs text-muted">{formatDate(today)}. Compared with what the records say should be there.</p></div>
-        {counts.error ? <div className="p-6"><ErrorNote message={counts.error} onRetry={counts.reload} /></div> : !counts.data ? <div className="p-6"><Skeleton className="h-20" /></div>
-          : counts.data.data.length === 0 ? <EmptyState title="Not counted yet today" text={canEdit ? 'Press Daily count to record what is on the shelves.' : undefined} /> : (
-            <Table head={['Material', 'Counted', 'Expected', 'Difference', 'Counted by']}>
-              {counts.data.data.map((c) => (
-                <tr key={c.raw_material_id}>
-                  <Td className="font-semibold capitalize">{c.name}</Td><Td>{c.counted} {c.unit}</Td><Td>{c.expected} {c.unit}</Td>
-                  <Td>{c.variance === 0 ? <Badge tone="ok">Matches</Badge> : <Badge tone={c.variance < 0 ? 'bad' : 'warn'}>{c.variance > 0 ? '+' : ''}{c.variance} {c.unit}</Badge>}</Td>
-                  <Td>{c.counted_by}</Td>
-                </tr>
-              ))}
-            </Table>
-          )}
-      </Card>
+        <Card className="p-5 xl:sticky xl:top-24">
+          <h2 className="text-lg font-bold">Today&apos;s count</h2>
+          <p className="mb-4 text-xs text-muted">{formatDate(today)} · Compared with the records</p>
+          {counts.error ? <ErrorNote message={counts.error} onRetry={counts.reload} /> : !counts.data ? <Skeleton className="h-24" />
+            : cdata.length === 0 ? <EmptyState title="Not counted yet today" text={canEdit ? 'Press Daily count to record what is on the shelves.' : undefined} /> : (
+              <ul className="divide-y divide-line/70">
+                {cdata.map((c) => (
+                  <li key={c.raw_material_id} className="flex items-center justify-between gap-3 py-3">
+                    <div><p className="font-semibold capitalize">{c.name}</p><p className="text-xs text-muted tnum">Counted {c.counted} · Expected {c.expected} {c.unit} · {c.counted_by}</p></div>
+                    {c.variance === 0 ? <Badge tone="ok">Matches</Badge> : <Badge tone={c.variance < 0 ? 'bad' : 'warn'}>{c.variance > 0 ? '+' : ''}{c.variance} {c.unit}</Badge>}
+                  </li>
+                ))}
+              </ul>
+            )}
+        </Card>
+      </div>
 
-      <ReceiveModal open={dialog?.kind === 'receive'} materials={rows.filter((m) => m.is_active)} onClose={() => setDialog(null)} onDone={done} />
-      <CountModal open={dialog?.kind === 'count'} materials={rows.filter((m) => m.is_active)} onClose={() => setDialog(null)} onDone={done} />
+      <ReceiveModal open={dialog?.kind === 'receive'} materials={all.filter((m) => m.is_active)} onClose={() => setDialog(null)} onDone={done} />
+      <CountModal open={dialog?.kind === 'count'} materials={all.filter((m) => m.is_active)} onClose={() => setDialog(null)} onDone={done} />
       <AddModal open={dialog?.kind === 'add'} onClose={() => setDialog(null)} onDone={done} />
       <AdjustModal material={dialog?.kind === 'adjust' ? dialog.m : null} onClose={() => setDialog(null)} onDone={done} />
       <EditModal material={dialog?.kind === 'edit' ? dialog.m : null} onClose={() => setDialog(null)} onDone={done} />
@@ -89,13 +139,14 @@ function useSubmit(onDone: () => void, success: string) {
 
 function QuantityList({ materials, values, setValues, label }: { materials: Material[]; values: Record<string, string>; setValues: (v: Record<string, string>) => void; label: string }) {
   return (
-    <div className="grid max-h-[50vh] gap-3 overflow-auto sm:grid-cols-2">
+    <ul className="max-h-[50vh] divide-y divide-line/70 overflow-auto rounded-xl border border-line">
       {materials.map((m) => (
-        <Field key={m.id} label={`${m.name} (${m.unit})`}>
-          <Input type="number" min={0} step="any" inputMode="decimal" value={values[m.id] ?? ''} onChange={(e) => setValues({ ...values, [m.id]: e.target.value })} placeholder={label === 'count' ? `Expected ${m.in_stock}` : '0'} />
-        </Field>
+        <li key={m.id} className="flex items-center justify-between gap-3 px-4 py-3">
+          <div><p className="font-semibold capitalize">{m.name}</p><p className="text-xs text-muted">{label === 'count' ? `Expected ${m.in_stock} ${m.unit}` : `In stock: ${m.in_stock} ${m.unit}`}</p></div>
+          <div className="flex items-center gap-2"><Input type="number" min={0} step="any" inputMode="decimal" value={values[m.id] ?? ''} onChange={(e) => setValues({ ...values, [m.id]: e.target.value })} placeholder="0" aria-label={`${m.name} ${label}`} className="w-28 text-right tnum" /><span className="w-10 text-sm text-muted">{m.unit}</span></div>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
 
@@ -105,10 +156,9 @@ function ReceiveModal({ open, materials, onClose, onDone }: { open: boolean; mat
   useEffect(() => { if (open) { setV({}); s.reset(); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const items = Object.entries(v).filter(([, q]) => Number(q) > 0).map(([raw_material_id, q]) => ({ raw_material_id, quantity: Number(q) }));
   return (
-    <Modal open={open} onClose={onClose} title="Receive stock" wide>
+    <Modal open={open} onClose={onClose} title="Receive stock" subtitle="Enter what was delivered. Leave the rest empty." wide>
       <form onSubmit={(e) => { e.preventDefault(); void s.run(() => api('staff/inventory/receipts', { body: { items } })); }} className="space-y-4">
         {s.error && <ErrorNote message={s.error} />}
-        <p className="text-sm text-muted">Enter what was delivered. Leave the rest empty.</p>
         <QuantityList materials={materials} values={v} setValues={setV} label="receive" />
         <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose}>Cancel</Button><Button type="submit" busy={s.busy} disabled={items.length === 0}>Save</Button></div>
       </form>
@@ -122,7 +172,7 @@ function CountModal({ open, materials, onClose, onDone }: { open: boolean; mater
   useEffect(() => { if (open) { setV({}); s.reset(); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const counts = Object.entries(v).filter(([, q]) => q !== '' && Number(q) >= 0).map(([raw_material_id, q]) => ({ raw_material_id, counted_quantity: Number(q) }));
   return (
-    <Modal open={open} onClose={onClose} title="Daily stock count" wide>
+    <Modal open={open} onClose={onClose} title="Daily stock count" subtitle={`${formatDate(lagosToday())} · Count what is on the shelves`} wide>
       <form onSubmit={(e) => { e.preventDefault(); void s.run(() => api('staff/inventory/counts', { body: { counts } })); }} className="space-y-4">
         {s.error && <ErrorNote message={s.error} />}
         <p className="text-sm text-muted">Count what is on the shelves. Zero is a valid count. A material can be counted once a day; fix mistakes with Adjust.</p>

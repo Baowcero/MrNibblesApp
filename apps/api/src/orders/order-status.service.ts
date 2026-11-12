@@ -1,7 +1,7 @@
 import { Global, Injectable, Module } from '@nestjs/common';
 import type { OrderStatus, Prisma } from '@prisma/client';
 import { AppError } from '../common/app-error.js';
-import { CUSTOMER_ORDER_MESSAGES, queueNotification } from '../notifications/queue.js';
+import { CUSTOMER_ORDER_MESSAGES, notifyRoles, queueNotification } from '../notifications/queue.js';
 
 /** The one place an order's status changes, so every change is checked and written to the history. */
 @Injectable()
@@ -26,6 +26,14 @@ export class OrderStatusService {
     await tx.orderStatusHistory.create({
       data: { orderId, fromStatus: order.status, toStatus: to, changedById: actorId, note },
     });
+    if (to === 'paid' || to === 'delivery_failed') {
+      const biz = await tx.customer.findUnique({ where: { id: order.customerId }, select: { businessName: true } });
+      await notifyRoles(tx, ['sales', 'ceo'], {
+        type: 'order_status',
+        title: to === 'paid' ? 'New paid order' : 'Delivery failed',
+        body: `${order.orderNo} · ${biz?.businessName ?? 'Customer'}${to === 'paid' ? ' is paid and ready to assign.' : ' could not be delivered.'}`,
+      });
+    }
     const message = CUSTOMER_ORDER_MESSAGES[to];
     if (message) {
       const customer = await tx.customer.findUnique({ where: { id: order.customerId } });

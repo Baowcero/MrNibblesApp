@@ -20,13 +20,17 @@
   --color-bad-soft: #fbe1e1;
   --color-warn: #a86400;
   --color-warn-soft: #fdf0cf;
-  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --color-side: #101a33;
+  --color-side-2: #1a2745;
+  --color-bar: #c9d5f2;
+  --font-display: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --shadow-soft: 0 1px 2px rgba(20, 33, 61, 0.05), 0 8px 24px rgba(20, 33, 61, 0.07);
 }
 
 html { background: var(--color-cream); color: var(--color-navy); }
 body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
-h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
+h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.02em; }
+.tnum { font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; }
 @media print { aside, .no-print { display: none !important; } }

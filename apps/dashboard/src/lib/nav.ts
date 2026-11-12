@@ -7,6 +7,7 @@ export const NAV: NavItem[] = [
   { href: '/', label: 'Overview', icon: 'home', roles: ['ceo', 'accounts'] },
   { href: '/orders', label: 'Orders', icon: 'orders', roles: ['ceo', 'sales', 'accounts'] },
   { href: '/customers', label: 'Customers', icon: 'people', roles: ['ceo', 'sales'] },
+  { href: '/reports', label: 'Reports', icon: 'chart', roles: ['ceo', 'accounts'] },
   { href: '/payments', label: 'Payments', icon: 'wallet', roles: ['ceo', 'accounts'] },
   { href: '/production', label: 'Production', icon: 'bread', roles: ['ceo', 'production'] },
   { href: '/inventory', label: 'Inventory', icon: 'box', roles: ['ceo', 'store_keeper', 'production'] },

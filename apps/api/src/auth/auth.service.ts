@@ -1,3 +1,4 @@
+import { notifyRoles } from '../notifications/queue.js';
 import { Injectable } from '@nestjs/common';
 import argon2 from 'argon2';
 import { Prisma, type RoleCode } from '@prisma/client';
@@ -259,6 +260,12 @@ export class AuthService {
       }
       throw e;
     }
+
+    await notifyRoles(this.prisma, ['sales', 'ceo'], {
+      type: 'account_update',
+      title: 'New customer sign-up',
+      body: `${dto.business_name?.trim() || 'A business'} is waiting for approval.`,
+    }).catch(() => undefined);
 
     const user = await this.getUser(userId);
     return { ...(await this.issueFor(user)), user: await this.profile(user), customer_status: customerStatus };

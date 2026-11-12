@@ -1,3 +1,4 @@
+import { notifyRoles } from '../notifications/queue.js';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomInt } from 'node:crypto';
@@ -154,6 +155,13 @@ export class OrdersService {
               idempotencyKey: paymentKey,
             },
           });
+          if (dto.payment_method === 'office_cash') {
+            await notifyRoles(tx, ['accounts', 'ceo'], {
+              type: 'order_status',
+              title: 'Cash order placed',
+              body: `${created.orderNo} from ${customer.businessName} will be paid in cash.`,
+            });
+          }
           return created;
         });
         return this.detail(userId, order.id);

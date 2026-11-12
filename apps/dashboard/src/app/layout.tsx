@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import { Bricolage_Grotesque, DM_Sans } from 'next/font/google';
+import { Figtree } from 'next/font/google';
 import './globals.css';
 
-const display = Bricolage_Grotesque({ variable: '--font-bricolage', subsets: ['latin'] });
-const body = DM_Sans({ variable: '--font-dm-sans', subsets: ['latin'] });
+// One simple, friendly sans for the whole dashboard.
+const sans = Figtree({ variable: '--font-figtree', subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'Mr Nibbles Staff',
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} h-full`}>
+    <html lang="en" className={`${sans.variable} h-full`}>
       <body className="min-h-full">{children}</body>
     </html>
   );

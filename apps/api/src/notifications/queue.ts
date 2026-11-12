@@ -23,3 +23,15 @@ export const CUSTOMER_ORDER_MESSAGES: Record<string, { title: string; body: (ord
   delivery_failed: { title: 'Delivery problem', body: (no) => `We could not deliver order ${no}. We will be in touch.` },
   ready: { title: 'Ready for pickup', body: (no) => `Order ${no} is ready at the bakery.` },
 };
+
+/** Tells every active staff member holding one of these roles. In-app only: staff have no push devices. */
+export async function notifyRoles(db: Db, roles: string[], n: Omit<NewNotification, 'userId'>) {
+  const users = await db.user.findMany({
+    where: { isActive: true, roles: { some: { role: { code: { in: roles as never } } } } },
+    select: { id: true },
+  });
+  if (users.length === 0) return;
+  await db.notification.createMany({
+    data: users.map((u) => ({ userId: u.id, type: n.type, title: n.title, body: n.body })),
+  });
+}

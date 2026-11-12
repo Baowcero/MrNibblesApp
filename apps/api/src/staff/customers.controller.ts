@@ -9,6 +9,16 @@ import { StaffCustomersService } from './customers.service.js';
 export class StaffCustomersController {
   constructor(private readonly customers: StaffCustomersService) {}
 
+  @Get('summary')
+  summary() {
+    return this.customers.summary();
+  }
+
+  @Get(':id')
+  detail(@Param('id', ParseUUIDPipe) id: string) {
+    return this.customers.detail(id);
+  }
+
   @Get()
   list(@Query() query: ListCustomersDto) {
     return this.customers.list(query);
