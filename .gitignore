@@ -9,6 +9,6 @@ dist/
 .DS_Store
 coverage/
 scaffold.done
-storage/
+/apps/api/storage/
 
 apps/api/test/load/load-users.json
