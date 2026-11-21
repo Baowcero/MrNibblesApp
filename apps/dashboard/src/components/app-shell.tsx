@@ -9,6 +9,7 @@ import { useQuery } from '@/lib/use-query';
 import { formatDate, lagosToday } from '@/lib/format';
 import { Icon } from './icons';
 import { NotificationBell } from './notification-bell';
+import { NotificationsProvider } from '@/lib/notifications';
 import { Button, ErrorNote, Field, Input, Skeleton, ToastProvider } from './ui';
 
 function SetPassword() {
@@ -143,7 +144,7 @@ function Shell({ children }: { children: ReactNode }) {
           <button onClick={() => setOpen(true)} aria-label="Open menu" className="rounded-full p-2 hover:bg-cream-2 lg:hidden"><Icon name="menu" /></button>
           <p className="hidden text-[15px] text-muted sm:block">Workspace <span className="mx-2">/</span> <span className="font-semibold text-navy">{current?.label ?? 'Dashboard'}</span></p>
           <p className="ml-auto hidden text-sm text-muted md:block tnum" suppressHydrationWarning>{stamp}</p>
-          <div className="ml-auto md:ml-2"><NotificationBell userId={user.id} allowedRoutes={items.map((n) => n.href)} /></div>
+          <div className="ml-auto md:ml-2"><NotificationBell allowedRoutes={items.map((n) => n.href)} /></div>
           <div className="relative">
             <button onClick={() => setMenu((m) => !m)} aria-haspopup="menu" aria-expanded={menu} className="flex items-center gap-3 rounded-full py-1 pr-2 pl-1 hover:bg-cream-2">
               <span className="grid size-10 place-items-center rounded-full bg-cream-2 text-sm font-bold">{initials}</span>
@@ -170,7 +171,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
       <ToastProvider>
-        <Shell>{children}</Shell>
+        <NotificationsProvider>
+          <Shell>{children}</Shell>
+        </NotificationsProvider>
       </ToastProvider>
     </SessionProvider>
   );

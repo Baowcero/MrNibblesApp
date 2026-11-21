@@ -21,3 +21,8 @@ export const randomKey = () => `${Date.now().toString(36)}-${Math.random().toStr
 export function lagosToday(now = new Date()) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Lagos', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
 }
+/** "Good morning / afternoon / evening" by the hour in Lagos. */
+export function greeting(now = new Date()) {
+  const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', hour: '2-digit', hour12: false }).format(now)) % 24;
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+}

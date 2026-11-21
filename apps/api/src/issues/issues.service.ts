@@ -83,6 +83,7 @@ export class IssuesService {
         type: 'issue_update',
         title: 'New issue reported',
         body: `${order.orderNo} · ${order.customer.businessName}: ${dto.issue_type.replaceAll('_', ' ')}.`,
+        target: `issue:${created.id}`,
       }).catch(() => undefined);
       return presentIssue(created);
     } catch (e) {

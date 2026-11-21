@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
 
 const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d).{8,128}$/;
 const PASSWORD_MESSAGE = 'Password must be at least 8 characters and include a letter and a number';
@@ -24,8 +24,23 @@ export class ChangePasswordDto {
 import { IsEmail, ValidateIf } from 'class-validator';
 
 export class UpdateProfileDto {
+  @IsOptional() @IsString() @MinLength(2) @MaxLength(80) full_name?: string;
   /** Send an empty string to remove the email. */
-  @ValidateIf((o: { email?: string }) => o.email !== '') @IsEmail() @MaxLength(254) email!: string;
+  @ValidateIf((o: { email?: string }) => o.email !== undefined && o.email !== '') @IsEmail() @MaxLength(254) email?: string;
+}
+
+export class LocationDto {
+  @IsString() @MinLength(1) @MaxLength(40) label!: string;
+  @IsString() @MinLength(5) @MaxLength(200) address!: string;
+  @IsUUID() area_id!: string;
+  @IsOptional() @IsBoolean() is_default?: boolean;
+}
+
+export class UpdateLocationDto {
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(40) label?: string;
+  @IsOptional() @IsString() @MinLength(5) @MaxLength(200) address?: string;
+  @IsOptional() @IsUUID() area_id?: string;
+  @IsOptional() @IsBoolean() is_default?: boolean;
 }
 
 export class SignupDto {

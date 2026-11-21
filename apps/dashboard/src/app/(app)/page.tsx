@@ -1,4 +1,5 @@
 "use client";
+import { useNotifications } from "@/lib/notifications";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@/lib/use-query";
@@ -144,8 +145,11 @@ export default function OverviewPage() {
     return { total, list: [...m.entries()].sort((a, b) => b[1] - a[1]) };
   }, [rows]);
 
+  const { unread } = useNotifications();
   const alerts = d
     ? ([
+        unread > 0 &&
+          `${unread} new notification${unread === 1 ? "" : "s"}`,
         toAssign > 0 &&
           `${toAssign} paid order${toAssign === 1 ? "" : "s"} to assign`,
         d.attention.pending_approvals > 0 &&

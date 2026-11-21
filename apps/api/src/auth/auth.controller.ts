@@ -1,14 +1,16 @@
-import { Body, Controller, Get, HttpCode, Ip, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Ip, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { AllowPasswordChange, AuthUser, CurrentUser, Public } from '../common/auth.js';
 import { AuthService } from './auth.service.js';
 import {
   BusinessSearchDto,
   ChangePasswordDto,
+  LocationDto,
   LoginDto,
   RefreshDto,
   UpdateProfileDto,
   SetPasswordDto,
   SignupDto,
+  UpdateLocationDto,
 } from './dto.js';
 
 @Controller()
@@ -69,6 +71,21 @@ export class AuthController {
 
   @Patch('me')
   updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
-    return this.auth.updateEmail(user.id, dto.email);
+    return this.auth.updateProfile(user.id, dto);
+  }
+
+  @Post('me/locations')
+  addLocation(@CurrentUser() user: AuthUser, @Body() dto: LocationDto) {
+    return this.auth.addLocation(user.id, dto);
+  }
+
+  @Patch('me/locations/:id')
+  updateLocation(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateLocationDto) {
+    return this.auth.updateLocation(user.id, id, dto);
+  }
+
+  @Delete('me/locations/:id')
+  removeLocation(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.auth.removeLocation(user.id, id);
   }
 }

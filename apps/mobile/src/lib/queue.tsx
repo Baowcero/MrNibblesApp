@@ -23,7 +23,7 @@ export type FailedEvent = { event: QueuedEvent; message: string };
 
 const QUEUE_KEY = 'mn_queue_v1';
 const FAILED_KEY = 'mn_queue_failed_v1';
-const NON_RETRYABLE = new Set(['invalid_payload', 'delivery_not_found', 'invalid_status_transition', 'photo_required', 'forbidden']);
+const NON_RETRYABLE = new Set(['invalid_payload', 'delivery_not_found', 'invalid_status_transition', 'photo_required', 'forbidden', 'not_today']);
 
 async function uploadPhoto(uri: string): Promise<string> {
   const blob = await (await fetch(uri)).blob();

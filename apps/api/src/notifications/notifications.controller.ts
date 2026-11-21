@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { IsIn, IsString, MaxLength, MinLength } from 'class-validator';
 import { AuthUser, CurrentUser } from '../common/auth.js';
 import { NotificationsService } from './notifications.service.js';
@@ -27,5 +27,17 @@ export class NotificationsController {
   @Get('notifications')
   list(@CurrentUser() user: AuthUser) {
     return this.notifications.list(user.id);
+  }
+
+  @HttpCode(200)
+  @Post('notifications/read-all')
+  readAll(@CurrentUser() user: AuthUser) {
+    return this.notifications.markAllRead(user.id);
+  }
+
+  @HttpCode(200)
+  @Post('notifications/:id/read')
+  read(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.notifications.markRead(user.id, id);
   }
 }

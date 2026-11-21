@@ -7,6 +7,7 @@ import { useSession } from '@/lib/session';
 import { useWide } from '@/lib/use-wide';
 import { downloadCsv } from '@/lib/export';
 import { Icon } from '@/components/icons';
+import { OrderTimeline } from '@/components/order-timeline';
 import {
   Badge, Button, Card, DateField, Drawer, EmptyState, ErrorNote, FilterTabs, ORDER_STATUS, PageHeader, Pager, Select, SearchBox, Skeleton, StatusBadge, Table, Td, useToast,
 } from '@/components/ui';
@@ -290,14 +291,7 @@ function OrderPanel({ id, canManage, distributors, onClose, onChanged }: { id: s
           )}
 
           <Section title="Timeline">
-            <ol className="space-y-3">
-              {o.timeline.map((t, i) => (
-                <li key={i} className="flex gap-3 text-sm">
-                  <span className={`mt-1.5 size-2.5 shrink-0 rounded-full ${i === o.timeline.length - 1 ? 'bg-brand' : 'bg-line'}`} />
-                  <div><p className="font-semibold">{ORDER_STATUS[t.status]?.label ?? t.status}</p><p className="text-xs text-muted">{formatDateTime(t.at)}</p>{t.note && <p className="text-xs text-muted">{t.note}</p>}</div>
-                </li>
-              ))}
-            </ol>
+            <OrderTimeline status={o.status} fulfilment={o.fulfilment} events={o.timeline} distributor={o.distributor?.full_name} />
           </Section>
         </>
       )}

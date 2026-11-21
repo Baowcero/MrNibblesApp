@@ -1,9 +1,11 @@
 import { cookies } from 'next/headers';
+import { crossSiteBlocked, isSameOrigin } from '@/lib/server/same-origin';
 import { API_URL, clearAuthCookies, setAuthCookies, type Tokens } from '@/lib/server/upstream';
 
 const STAFF = ['ceo', 'sales', 'accounts', 'production', 'store_keeper'];
 
 export async function POST(req: Request) {
+  if (!isSameOrigin(req)) return crossSiteBlocked();
   let res: Response;
   try {
     res = await fetch(`${API_URL}/v1/auth/login`, {

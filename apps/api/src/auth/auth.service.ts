@@ -6,7 +6,7 @@ import { AppError } from '../common/app-error.js';
 import { normalizePhone } from '../common/phone.js';
 import { RateLimiter } from '../common/rate-limit.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import type { ChangePasswordDto, LoginDto, SignupDto } from './dto.js';
+import type { ChangePasswordDto, LocationDto, LoginDto, SignupDto, UpdateLocationDto, UpdateProfileDto } from './dto.js';
 import { TokensService, hashToken } from './tokens.service.js';
 
 const WITH_ROLES = { roles: { include: { role: true } } } as const;
@@ -149,9 +149,79 @@ export class AuthService {
     return { ...(await this.issueFor(updated)), user: await this.profile(updated) };
   }
 
-  async updateEmail(userId: string, email: string) {
-    const updated = await this.prisma.user.update({ where: { id: userId }, data: { email: email.trim().toLowerCase() || null }, include: WITH_ROLES });
+  /** Name and email only. The phone number is the login, so it changes through the bakery, not the app. */
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const data: Prisma.UserUpdateInput = {};
+    if (dto.full_name !== undefined) data.fullName = dto.full_name.trim();
+    if (dto.email !== undefined) data.email = dto.email.trim().toLowerCase() || null;
+    const updated = await this.prisma.user.update({ where: { id: userId }, data, include: WITH_ROLES });
     return this.profile(updated);
+  }
+
+  // ---------------------------------------------------------------- delivery addresses
+
+  private async myCustomer(userId: string) {
+    const customer = await this.prisma.customer.findUnique({ where: { userId } });
+    if (!customer) throw new AppError(403, 'not_a_customer', 'This account is not a customer account');
+    return customer;
+  }
+
+  private async assertArea(areaId: string) {
+    const area = await this.prisma.area.findUnique({ where: { id: areaId } });
+    if (!area) throw new AppError(400, 'area_not_found', 'Choose an area from the list');
+  }
+
+  async addLocation(userId: string, dto: LocationDto) {
+    const customer = await this.myCustomer(userId);
+    await this.assertArea(dto.area_id);
+    await this.prisma.$transaction(async (tx) => {
+      const active = await tx.customerLocation.count({ where: { customerId: customer.id, isActive: true } });
+      if (active >= 5) throw new AppError(409, 'too_many_locations', 'You can save up to 5 addresses. Remove one first.');
+      const makeDefault = dto.is_default === true || active === 0;
+      if (makeDefault) await tx.customerLocation.updateMany({ where: { customerId: customer.id }, data: { isDefault: false } });
+      await tx.customerLocation.create({
+        data: { customerId: customer.id, label: dto.label.trim(), address: dto.address.trim(), areaId: dto.area_id, isDefault: makeDefault },
+      });
+    });
+    return this.me(userId);
+  }
+
+  async updateLocation(userId: string, id: string, dto: UpdateLocationDto) {
+    const customer = await this.myCustomer(userId);
+    const loc = await this.prisma.customerLocation.findFirst({ where: { id, customerId: customer.id, isActive: true } });
+    if (!loc) throw new AppError(404, 'location_not_found', 'Address not found');
+    if (dto.area_id) await this.assertArea(dto.area_id);
+    await this.prisma.$transaction(async (tx) => {
+      // There is always one default address, so a request to un-default the current one is ignored.
+      if (dto.is_default === true) await tx.customerLocation.updateMany({ where: { customerId: customer.id }, data: { isDefault: false } });
+      await tx.customerLocation.update({
+        where: { id },
+        data: {
+          ...(dto.label !== undefined ? { label: dto.label.trim() } : {}),
+          ...(dto.address !== undefined ? { address: dto.address.trim() } : {}),
+          ...(dto.area_id ? { areaId: dto.area_id } : {}),
+          ...(dto.is_default === true ? { isDefault: true } : {}),
+        },
+      });
+    });
+    return this.me(userId);
+  }
+
+  /** Addresses are switched off, not deleted, because past orders point at them. */
+  async removeLocation(userId: string, id: string) {
+    const customer = await this.myCustomer(userId);
+    await this.prisma.$transaction(async (tx) => {
+      const active = await tx.customerLocation.findMany({ where: { customerId: customer.id, isActive: true }, orderBy: { createdAt: 'asc' } });
+      const loc = active.find((l) => l.id === id);
+      if (!loc) throw new AppError(404, 'location_not_found', 'Address not found');
+      if (active.length === 1) throw new AppError(409, 'last_location', 'Keep at least one address. Add a new one before removing this one.');
+      await tx.customerLocation.update({ where: { id }, data: { isActive: false, isDefault: false } });
+      if (loc.isDefault) {
+        const next = active.find((l) => l.id !== id)!;
+        await tx.customerLocation.update({ where: { id: next.id }, data: { isDefault: true } });
+      }
+    });
+    return this.me(userId);
   }
 
   async me(userId: string) {

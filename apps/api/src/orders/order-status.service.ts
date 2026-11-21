@@ -26,19 +26,32 @@ export class OrderStatusService {
     await tx.orderStatusHistory.create({
       data: { orderId, fromStatus: order.status, toStatus: to, changedById: actorId, note },
     });
-    if (to === 'paid' || to === 'delivery_failed') {
+    // Staff hear about the moments that matter: money in, bread delivered or collected, a delivery that failed.
+    const staff: Partial<Record<OrderStatus, { roles: string[]; title: string; body: (who: string) => string }>> = {
+      paid: {
+        roles: ['sales', 'ceo', 'accounts'],
+        title: 'Payment received',
+        body: (who) => `${order.orderNo} · ${who} is paid${order.fulfilment === 'delivery' ? ' and ready to assign.' : '.'}`,
+      },
+      delivered: { roles: ['sales', 'ceo'], title: 'Delivered', body: (who) => `${order.orderNo} · ${who} was delivered.` },
+      collected: { roles: ['sales', 'ceo'], title: 'Collected', body: (who) => `${order.orderNo} · ${who} collected their order.` },
+      delivery_failed: { roles: ['sales', 'ceo'], title: 'Delivery failed', body: (who) => `${order.orderNo} · ${who} could not be delivered.` },
+    };
+    const forStaff = staff[to];
+    if (forStaff) {
       const biz = await tx.customer.findUnique({ where: { id: order.customerId }, select: { businessName: true } });
-      await notifyRoles(tx, ['sales', 'ceo'], {
+      await notifyRoles(tx, forStaff.roles, {
         type: 'order_status',
-        title: to === 'paid' ? 'New paid order' : 'Delivery failed',
-        body: `${order.orderNo} · ${biz?.businessName ?? 'Customer'}${to === 'paid' ? ' is paid and ready to assign.' : ' could not be delivered.'}`,
+        title: forStaff.title,
+        body: forStaff.body(biz?.businessName ?? 'Customer'),
+        target: `order:${order.id}`,
       });
     }
     const message = CUSTOMER_ORDER_MESSAGES[to];
     if (message) {
       const customer = await tx.customer.findUnique({ where: { id: order.customerId } });
       if (customer?.userId) {
-        await queueNotification(tx, { userId: customer.userId, type: 'order_status', title: message.title, body: message.body(order.orderNo) });
+        await queueNotification(tx, { userId: customer.userId, type: 'order_status', title: message.title, body: message.body(order.orderNo, order.fulfilment), target: `order:${order.id}` });
       }
     }
     return order;

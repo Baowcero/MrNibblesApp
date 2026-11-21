@@ -27,8 +27,16 @@ export class PaymentsService {
     return order;
   }
 
+  /** PAYSTACK_CALLBACK_URL is this API's public `/v1/payments/return` page. It bounces the customer back into the app. */
+  private callbackUrl(returnUrl?: string) {
+    const base = process.env.PAYSTACK_CALLBACK_URL;
+    if (!base) return undefined;
+    if (!returnUrl || !/^(mrnibbles|exp|exps):\/\//.test(returnUrl)) return base;
+    return `${base}${base.includes('?') ? '&' : '?'}to=${encodeURIComponent(returnUrl)}`;
+  }
+
   /** Starts a Paystack checkout. The app opens `authorization_url` (card or bank transfer). */
-  async initialize(userId: string, orderId: string) {
+  async initialize(userId: string, orderId: string, returnUrl?: string) {
     const order = await this.myOrder(userId, orderId);
     const payment = order.payments[0];
     if (!payment || payment.method !== 'paystack') {
@@ -48,7 +56,7 @@ export class PaymentsService {
       email: order.customer.user?.email ?? `${digits || order.customer.id}@${domain}`, // the customer's own email if they gave one, otherwise one made from the phone number
       amountKobo: Number(payment.amountKobo),
       reference,
-      callbackUrl: process.env.PAYSTACK_CALLBACK_URL,
+      callbackUrl: this.callbackUrl(returnUrl),
       metadata: { payment_id: payment.id, order_id: order.id, order_no: order.orderNo },
     });
     return {

@@ -10,3 +10,5 @@ dist/
 coverage/
 scaffold.done
 storage/
+
+apps/api/test/load/load-users.json

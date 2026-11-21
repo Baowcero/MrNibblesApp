@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppError } from '../common/app-error.js';
-import { lagosToday, toDateOnly } from '../common/dates.js';
+import { isFuture, lagosToday, toDateOnly } from '../common/dates.js';
 import { OrderStatusService } from '../orders/order-status.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StorageService, parsePhotoKey } from '../storage/storage.service.js';
@@ -69,8 +69,22 @@ export class DistributorService {
     return { me, delivery };
   }
 
+  /** The app shows the last 7 days and tomorrow. Anything outside that is for the dashboard. */
+  private assertDateInRange(date: string) {
+    const today = lagosToday();
+    const min = new Date(toDateOnly(today).getTime() - 7 * 86_400_000).toISOString().slice(0, 10);
+    const max = new Date(toDateOnly(today).getTime() + 86_400_000).toISOString().slice(0, 10);
+    if (date < min || date > max) throw new AppError(400, 'date_out_of_range', 'You can see deliveries from the last 7 days up to tomorrow');
+  }
+
+  /** Tomorrow's list can be looked at, but nothing is delivered before the day. */
+  private assertNotFuture(delivery: DeliveryRow) {
+    if (isFuture(delivery.order.deliveryDate.toISOString().slice(0, 10))) throw new AppError(409, 'not_today', 'This delivery is for a later day');
+  }
+
   async list(userId: string, date?: string) {
     const me = await this.me(userId);
+    if (date) this.assertDateInRange(date);
     const rows = await this.prisma.delivery.findMany({
       where: { distributorId: me.id, order: { deliveryDate: toDateOnly(date ?? lagosToday()) } },
       include: DELIVERY_INCLUDE,
@@ -86,6 +100,7 @@ export class DistributorService {
   async start(userId: string, deliveryId: string) {
     const { delivery } = await this.own(userId, deliveryId);
     if (delivery.order.status === 'out_for_delivery') return this.present(delivery); // already started
+    this.assertNotFuture(delivery);
     await this.prisma.$transaction(async (tx) => {
       await this.status.transition(tx, delivery.orderId, ['assigned'], 'out_for_delivery', userId, 'Distributor is on the way');
       await tx.delivery.update({ where: { id: delivery.id }, data: { startedAt: new Date() } });
@@ -97,6 +112,7 @@ export class DistributorService {
   async confirm(userId: string, deliveryId: string, dto: ConfirmDeliveryDto) {
     const { me, delivery } = await this.own(userId, deliveryId);
     if (delivery.order.status === 'delivered') return this.present(delivery);
+    this.assertNotFuture(delivery);
 
     const keys = [...new Set(dto.photo_keys)];
     for (const key of keys) {
@@ -138,6 +154,7 @@ export class DistributorService {
   async fail(userId: string, deliveryId: string, dto: FailDeliveryDto) {
     const { delivery } = await this.own(userId, deliveryId);
     if (delivery.order.status === 'delivery_failed') return this.present(delivery);
+    this.assertNotFuture(delivery);
     await this.prisma.$transaction(async (tx) => {
       await this.status.transition(tx, delivery.orderId, ['assigned', 'out_for_delivery'], 'delivery_failed', userId, dto.note ?? dto.reason);
       await tx.delivery.update({ where: { id: delivery.id }, data: { failedReason: dto.reason, failureNote: dto.note } });

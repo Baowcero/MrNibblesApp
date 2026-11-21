@@ -13,6 +13,7 @@ interface Ctx {
   signUp: (body: Record<string, unknown>) => Promise<void>;
   signOut: () => Promise<void>;
   setPassword: (newPassword: string) => Promise<void>;
+  changePassword: (current: string, next: string) => Promise<void>;
   reload: () => Promise<void>;
 }
 const SessionContext = createContext<Ctx | null>(null);
@@ -44,11 +45,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     signUp: async (body) => finish(await api<AuthResult>('auth/signup', { body, auth: false })),
     // Other sessions are signed out when the password changes, so the reply carries fresh tokens.
     setPassword: async (newPassword) => finish(await api<AuthResult>('auth/set-password', { body: { new_password: newPassword } })),
+    changePassword: async (current, next) => finish(await api<AuthResult>('auth/change-password', { body: { current_password: current, new_password: next } })),
     signOut: async () => {
+      // Leave straight away. Telling the server must never hold the person on this screen (slow or no network).
       const t = await loadTokens();
-      if (t) { try { await api('auth/logout', { body: { refresh_token: t.refresh }, auth: false }); } catch { /* ignore */ } }
       await saveTokens(null);
       setUser(null);
+      if (t) void api('auth/logout', { body: { refresh_token: t.refresh }, auth: false }).catch(() => { /* the token expires on its own */ });
     },
   }), [user, loading, reload, finish]);
 

@@ -710,11 +710,16 @@ model Notification {
   scheduledFor DateTime?          @map("scheduled_for") @db.Timestamptz
   sentAt       DateTime?          @map("sent_at") @db.Timestamptz
   status       NotificationStatus @default(queued)
+  /// When the person opened it. Null means unread.
+  readAt       DateTime?          @map("read_at") @db.Timestamptz
+  /// What it is about, as "order:<id>", "customer:<id>" or "issue:<id>". Lets a click open the right screen.
+  target       String?
   createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([userId, createdAt])
+  @@index([userId, readAt])
   @@map("notifications")
 }
 

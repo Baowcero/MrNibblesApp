@@ -1,133 +1,396 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { api, errorText } from '@/lib/api';
-import { useSession } from '@/lib/session';
-import { useQuery } from '@/lib/use-query';
-import { formatDate, formatNaira, randomKey } from '@/lib/format';
-import { payWithPaystack } from '@/lib/pay';
-import { Body, Button, Card, ErrorNote, H1, H2, Loading, Row, Screen } from '@/components/ui';
-import { color, font } from '@/theme';
+import { useEffect, useMemo, useState } from "react";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { useRouter } from "expo-router";
+import { useSession } from "@/lib/session";
+import { useQuery } from "@/lib/use-query";
+import { formatNaira } from "@/lib/format";
+import {
+  Body,
+  Button,
+  Card,
+  Choice,
+  ErrorNote,
+  Icon,
+  Loading,
+  Row,
+  Screen,
+  TopBar,
+} from "@/components/ui";
+import { color, font, tnum } from "@/theme";
 
-interface Product { id: string; code: string; name: string; unit_price_kobo: number }
-interface Booking { delivery_date: string; is_same_day: boolean; seconds_until_close: number; delivery_window: { start: string; end: string } }
-interface Quote { items: { product_id: string; name: string; quantity: number; unit_price_kobo: number; line_total_kobo: number }[]; subtotal_kobo: number; paystack_fee_kobo: number; total_kobo: number; savings_kobo: number }
-type Method = 'paystack' | 'office_cash';
-type Fulfilment = 'delivery' | 'pickup';
+interface Product {
+  id: string;
+  code: string;
+  name: string;
+  unit_price_kobo: number;
+}
+type Fulfilment = "delivery" | "pickup";
+const QUICK = [10, 20, 50, 100];
 
-function Choice({ label, sub, on, onPress }: { label: string; sub?: string; on: boolean; onPress: () => void }) {
+function Segmented({
+  value,
+  onChange,
+}: {
+  value: Fulfilment;
+  onChange: (v: Fulfilment) => void;
+}) {
+  const opts: { key: Fulfilment; label: string }[] = [
+    { key: "delivery", label: "Delivery" },
+    { key: "pickup", label: "Office pickup" },
+  ];
   return (
-    <Pressable accessibilityRole="radio" accessibilityState={{ selected: on }} onPress={onPress}
-      style={{ flex: 1, padding: 14, borderRadius: 18, borderWidth: 2, borderColor: on ? color.brand : color.line, backgroundColor: on ? color.brandSoft : '#fff' }}>
-      <Text style={{ fontFamily: font.bodyBold, fontSize: 15, color: color.navy }}>{label}</Text>
-      {sub ? <Text style={{ fontFamily: font.body, fontSize: 12, color: color.muted, marginTop: 2 }}>{sub}</Text> : null}
-    </Pressable>
+    <View
+      style={{
+        flexDirection: "row",
+        backgroundColor: color.cream2,
+        borderRadius: 18,
+        padding: 4,
+      }}
+    >
+      {opts.map((o) => {
+        const on = value === o.key;
+        return (
+          <Pressable
+            key={o.key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            onPress={() => onChange(o.key)}
+            style={{
+              flex: 1,
+              height: 44,
+              borderRadius: 14,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: on ? "#fff" : "transparent",
+              borderWidth: on ? 1 : 0,
+              borderColor: color.line,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: font.bold,
+                fontSize: 15,
+                color: on ? color.navy : color.muted,
+              }}
+            >
+              {o.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
+/** Step 1 of 3: choose the bread. Nothing is placed or charged here; "Review order" moves on to the review and pay screen. */
 export default function NewOrder() {
   const router = useRouter();
   const { user } = useSession();
-  const products = useQuery<{ data: Product[] }>('products');
-  const booking = useQuery<Booking>('booking/status');
+  const products = useQuery<{ data: Product[] }>("products");
   const locations = useMemo(() => user?.locations ?? [], [user]);
 
   const [qty, setQty] = useState<Record<string, number>>({});
-  const [fulfilment, setFulfilment] = useState<Fulfilment>('delivery');
-  const [locationId, setLocationId] = useState('');
-  const [method, setMethod] = useState<Method>('paystack');
-  const [quote, setQuote] = useState<Quote | null>(null);
-  const [quoteError, setQuoteError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const key = useRef(randomKey()); // one key per order attempt: resending it can never double-order
-
-  useEffect(() => { if (!locationId && locations.length) setLocationId((locations.find((l) => l.is_default) ?? locations[0]!).id); }, [locations, locationId]);
-
-  const items = useMemo(() => Object.entries(qty).filter(([, n]) => n > 0).map(([product_id, quantity]) => ({ product_id, quantity })), [qty]);
-  const loaves = items.reduce((n, i) => n + i.quantity, 0);
+  const [fulfilment, setFulfilment] = useState<Fulfilment>("delivery");
+  const [locationId, setLocationId] = useState("");
+  const [pick, setPick] = useState(false);
 
   useEffect(() => {
-    if (items.length === 0) { setQuote(null); setQuoteError(null); return; }
-    const t = setTimeout(() => {
-      api<Quote>('orders/quote', { body: { items, payment_method: method } }).then((q) => { setQuote(q); setQuoteError(null); }).catch((e) => setQuoteError(errorText(e)));
-    }, 250);
-    return () => clearTimeout(t);
-  }, [items, method]);
+    if (!locationId && locations.length)
+      setLocationId((locations.find((l) => l.is_default) ?? locations[0]!).id);
+  }, [locations, locationId]);
 
-  const set = (id: string, n: number) => { key.current = randomKey(); setQty((q) => ({ ...q, [id]: Math.max(0, Math.min(100000, n)) })); };
-
-  async function place() {
-    setBusy(true);
-    setError(null);
-    try {
-      const order = await api<{ id: string }>('orders', {
-        body: { items, payment_method: method, fulfilment, ...(fulfilment === 'delivery' ? { location_id: locationId } : {}) },
-        headers: { 'Idempotency-Key': key.current },
-      });
-      router.replace({ pathname: '/order/[id]', params: { id: order.id } });
-      if (method === 'paystack') { try { await payWithPaystack(order.id); } catch { /* the order screen offers Pay now again */ } }
-    } catch (e) { setError(errorText(e)); setBusy(false); }
-  }
-
-  const canPlace = loaves > 0 && !!quote && !quoteError && (fulfilment === 'pickup' || !!locationId);
+  const set = (id: string, n: number) =>
+    setQty((q) => ({
+      ...q,
+      [id]: Math.max(0, Math.min(100000, Math.round(n) || 0)),
+    }));
+  const items = useMemo(
+    () =>
+      Object.entries(qty)
+        .filter(([, n]) => n > 0)
+        .map(([product_id, quantity]) => ({ product_id, quantity })),
+    [qty],
+  );
+  const loaves = items.reduce((n, i) => n + i.quantity, 0);
+  const subtotal = (products.data?.data ?? []).reduce(
+    (n, p) => n + p.unit_price_kobo * (qty[p.id] ?? 0),
+    0,
+  );
+  const chosen = locations.find((l) => l.id === locationId);
+  const canReview = loaves > 0 && (fulfilment === "pickup" || !!locationId);
 
   return (
-    <Screen>
-      <Row><H1>Order bread</H1><Button title="Close" variant="ghost" onPress={() => router.back()} /></Row>
-      {booking.data && <Card tone="brand"><Body>{booking.data.is_same_day ? `Delivery today, ${booking.data.delivery_window.start} to ${booking.data.delivery_window.end}` : `Delivery on ${formatDate(booking.data.delivery_date)}`}</Body></Card>}
-      {error ? <ErrorNote message={error} /> : null}
-
-      <H2>How many loaves?</H2>
-      {products.error ? <ErrorNote message={products.error} onRetry={products.reload} /> : !products.data ? <Loading /> : products.data.data.map((p) => (
-        <Card key={p.id}>
+    <Screen
+      footer={
+        <>
           <Row>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: font.bodyBold, fontSize: 17, color: color.navy }}>{p.name}</Text>
-              <Body muted>{formatNaira(p.unit_price_kobo)} each</Body>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Pressable accessibilityRole="button" accessibilityLabel={`Remove one ${p.name}`} onPress={() => set(p.id, (qty[p.id] ?? 0) - 1)} style={stepper}><Text style={stepText}>−</Text></Pressable>
-              <Text style={{ minWidth: 44, textAlign: 'center', fontFamily: font.display, fontSize: 22, color: color.navy }}>{qty[p.id] ?? 0}</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel={`Add one ${p.name}`} onPress={() => set(p.id, (qty[p.id] ?? 0) + 1)} style={stepper}><Text style={stepText}>+</Text></Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel={`Add ten ${p.name}`} onPress={() => set(p.id, (qty[p.id] ?? 0) + 10)} style={[stepper, { width: 52 }]}><Text style={[stepText, { fontSize: 15 }]}>+10</Text></Pressable>
-            </View>
+            <Text
+              style={{
+                fontFamily: font.semi,
+                fontSize: 14.5,
+                color: color.muted,
+              }}
+            >
+              {loaves} {loaves === 1 ? "loaf" : "loaves"}
+            </Text>
+            <Text
+              style={[
+                { fontFamily: font.display, fontSize: 22, color: color.navy },
+                tnum,
+              ]}
+            >
+              {formatNaira(subtotal)}
+            </Text>
           </Row>
+          <Button
+            title="Review order"
+            variant="accent"
+            arrow
+            disabled={!canReview}
+            onPress={() =>
+              router.push({
+                pathname: "/review",
+                params: {
+                  items: JSON.stringify(items),
+                  fulfilment,
+                  location_id: fulfilment === "delivery" ? locationId : "",
+                },
+              })
+            }
+          />
+        </>
+      }
+    >
+      <TopBar title="New order" />
+      <Segmented value={fulfilment} onChange={setFulfilment} />
+
+      {fulfilment === "delivery" ? (
+        <View style={{ gap: 10 }}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={locations.length < 2}
+            onPress={() => setPick((p) => !p)}
+          >
+            <Card
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 12,
+                paddingVertical: 14,
+              }}
+            >
+              <Icon name="map-pin" size={20} tint={color.brand} />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontFamily: font.semi,
+                    fontSize: 13,
+                    color: color.muted,
+                  }}
+                >
+                  Deliver to
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: font.bold,
+                    fontSize: 16.5,
+                    color: color.navy,
+                  }}
+                >
+                  {chosen
+                    ? `${chosen.label}, ${chosen.area.name}`
+                    : "No delivery address yet"}
+                </Text>
+              </View>
+              {locations.length > 1 ? (
+                <Icon
+                  name={pick ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  tint={color.muted}
+                />
+              ) : null}
+            </Card>
+          </Pressable>
+          {pick &&
+            locations.map((l) => (
+              <Choice
+                key={l.id}
+                icon="map-pin"
+                label={l.label}
+                sub={`${l.address}, ${l.area.name}`}
+                on={locationId === l.id}
+                onPress={() => {
+                  setLocationId(l.id);
+                  setPick(false);
+                }}
+              />
+            ))}
+        </View>
+      ) : (
+        <Card
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            paddingVertical: 14,
+          }}
+        >
+          <Icon name="shopping-bag" size={20} tint={color.brand} />
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontFamily: font.semi,
+                fontSize: 13,
+                color: color.muted,
+              }}
+            >
+              Pick up from
+            </Text>
+            <Text
+              style={{
+                fontFamily: font.bold,
+                fontSize: 16.5,
+                color: color.navy,
+              }}
+            >
+              The bakery, Ogbomoso
+            </Text>
+          </View>
         </Card>
-      ))}
+      )}
 
-      <H2>Delivery or pickup?</H2>
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Choice label="Delivery" sub="We bring it to you" on={fulfilment === 'delivery'} onPress={() => setFulfilment('delivery')} />
-        <Choice label="Pickup" sub="Collect at the bakery" on={fulfilment === 'pickup'} onPress={() => setFulfilment('pickup')} />
-      </View>
-      {fulfilment === 'delivery' && locations.map((l) => (
-        <Pressable key={l.id} accessibilityRole="radio" accessibilityState={{ selected: locationId === l.id }} onPress={() => setLocationId(l.id)}
-          style={{ padding: 14, borderRadius: 18, borderWidth: 2, borderColor: locationId === l.id ? color.brand : color.line, backgroundColor: '#fff' }}>
-          <Text style={{ fontFamily: font.bodyBold, color: color.navy }}>{l.label}</Text>
-          <Body muted>{l.address}, {l.area.name}</Body>
-        </Pressable>
-      ))}
-
-      <H2>How will you pay?</H2>
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Choice label="Pay online" sub="Card or transfer, small fee" on={method === 'paystack'} onPress={() => setMethod('paystack')} />
-        <Choice label="Cash at office" sub="No fee" on={method === 'office_cash'} onPress={() => setMethod('office_cash')} />
-      </View>
-
-      {quoteError ? <ErrorNote message={quoteError} /> : quote ? (
-        <Card style={{ gap: 8 }}>
-          {quote.items.map((l) => <Row key={l.product_id}><Body>{l.quantity} × {l.name}</Body><Body>{formatNaira(l.line_total_kobo)}</Body></Row>)}
-          {quote.paystack_fee_kobo > 0 && <Row><Body muted>Online payment fee</Body><Body muted>{formatNaira(quote.paystack_fee_kobo)}</Body></Row>}
-          <Row style={{ marginTop: 6 }}><H2>Total</H2><Text style={{ fontFamily: font.display, fontSize: 28, color: color.navy }}>{formatNaira(quote.total_kobo)}</Text></Row>
-          <Body style={{ color: color.ok }}>You save {formatNaira(quote.savings_kobo)} on this order.</Body>
-        </Card>
-      ) : null}
-
-      <Button title={method === 'paystack' ? 'Place order and pay' : 'Place order'} onPress={place} busy={busy} disabled={!canPlace} />
+      {products.error ? (
+        <ErrorNote message={products.error} onRetry={products.reload} />
+      ) : !products.data ? (
+        <Loading />
+      ) : (
+        products.data.data.map((p) => {
+          const n = qty[p.id] ?? 0;
+          return (
+            <Card key={p.id} style={{ gap: 14 }}>
+              <Row>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontFamily: font.display,
+                      fontSize: 20,
+                      color: color.navy,
+                      letterSpacing: -0.3,
+                    }}
+                  >
+                    {p.name}
+                  </Text>
+                  <Body muted>{formatNaira(p.unit_price_kobo)} each</Body>
+                </View>
+                {n > 0 ? (
+                  <Text
+                    style={[
+                      {
+                        fontFamily: font.bold,
+                        fontSize: 15,
+                        color: color.brand,
+                      },
+                      tnum,
+                    ]}
+                  >
+                    {formatNaira(p.unit_price_kobo * n)}
+                  </Text>
+                ) : null}
+              </Row>
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+              >
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove one ${p.name}`}
+                  onPress={() => set(p.id, n - 1)}
+                  style={[stepper, { backgroundColor: color.cream2 }]}
+                >
+                  <Icon name="minus" size={20} />
+                </Pressable>
+                <View
+                  style={{
+                    flex: 1,
+                    height: 52,
+                    borderRadius: 14,
+                    borderWidth: 1.5,
+                    borderColor: color.line,
+                    backgroundColor: "#fff",
+                    justifyContent: "center",
+                  }}
+                >
+                  <TextInput
+                    accessibilityLabel={`${p.name} quantity`}
+                    value={n === 0 ? "" : String(n)}
+                    placeholder="0"
+                    placeholderTextColor="#b6bccb"
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    onChangeText={(v) =>
+                      set(p.id, Number(v.replace(/\D/g, "")))
+                    }
+                    style={[
+                      {
+                        textAlign: "center",
+                        fontFamily: font.display,
+                        fontSize: 26,
+                        color: color.navy,
+                      },
+                      tnum,
+                    ]}
+                  />
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Add one ${p.name}`}
+                  onPress={() => set(p.id, n + 1)}
+                  style={[stepper, { backgroundColor: color.side2 }]}
+                >
+                  <Icon name="plus" size={20} tint="#fff" />
+                </Pressable>
+              </View>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {QUICK.map((k) => (
+                  <Pressable
+                    key={k}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add ${k} ${p.name}`}
+                    onPress={() => set(p.id, n + k)}
+                    style={{
+                      flex: 1,
+                      height: 42,
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: color.line,
+                      backgroundColor: color.cream,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontFamily: font.bold,
+                        fontSize: 14.5,
+                        color: color.navy,
+                      }}
+                    >
+                      +{k}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </Card>
+          );
+        })
+      )}
     </Screen>
   );
 }
 
-const stepper = { width: 44, height: 44, borderRadius: 22, backgroundColor: color.cream2, alignItems: 'center', justifyContent: 'center' } as const;
-const stepText = { fontFamily: font.display, fontSize: 24, color: color.navy } as const;
+const stepper = {
+  width: 52,
+  height: 52,
+  borderRadius: 26,
+  alignItems: "center",
+  justifyContent: "center",
+} as const;

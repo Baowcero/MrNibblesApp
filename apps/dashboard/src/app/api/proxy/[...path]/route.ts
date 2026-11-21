@@ -1,9 +1,11 @@
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
+import { crossSiteBlocked, isSameOrigin } from '@/lib/server/same-origin';
 import { callApi, setAuthCookies, type Tokens } from '@/lib/server/upstream';
 
 /** Forwards /api/proxy/<path> to the API at /v1/<path> with the user's token. The browser never sees the tokens. */
 async function handle(req: NextRequest, ctx: RouteContext<'/api/proxy/[...path]'>) {
+  if (req.method !== 'GET' && req.method !== 'HEAD' && !isSameOrigin(req)) return crossSiteBlocked();
   const { path } = await ctx.params;
   const joined = path.join('/');
   const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : await req.arrayBuffer();

@@ -1,3 +1,4 @@
+import { notifyRoles } from '../notifications/queue.js';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service.js';
@@ -84,6 +85,31 @@ export class InventoryService {
     if (found.length !== new Set(ids).size) throw new AppError(400, 'invalid_material', 'One of the raw materials does not exist or is switched off');
   }
 
+  /**
+   * Tells production, the store keeper and the CEO when stock has just dropped to its reorder level.
+   * Only the moment it crosses is announced, so the same material does not alert on every run.
+   */
+  private async alertIfLow(used: { id: string; quantity: number }[]) {
+    try {
+      const ids = used.filter((u) => u.quantity > 0).map((u) => u.id);
+      if (ids.length === 0) return;
+      const mats = await this.prisma.rawMaterial.findMany({ where: { id: { in: ids }, isActive: true, reorderLevel: { not: null } } });
+      const stock = await this.stockByMaterial();
+      for (const m of mats) {
+        const now = Number(stock.get(m.id) ?? 0);
+        const before = now + (used.find((u) => u.id === m.id)?.quantity ?? 0);
+        if (now <= Number(m.reorderLevel) && before > Number(m.reorderLevel)) {
+          await notifyRoles(this.prisma, ['production', 'store_keeper', 'ceo'], {
+            type: 'order_status',
+            title: 'Low stock',
+            body: `${m.name} is down to ${now}${m.unit ? ` ${m.unit}` : ''}. Time to reorder.`,
+            target: 'stock:low',
+          });
+        }
+      }
+    } catch { /* an alert must never fail the stock change that caused it */ }
+  }
+
   async receive(actorId: string, dto: ReceiptDto) {
     await this.assertMaterials(dto.items.map((i) => i.raw_material_id));
     await this.prisma.rawMaterialMovement.createMany({
@@ -98,6 +124,7 @@ export class InventoryService {
     const m = await this.prisma.rawMaterialMovement.create({
       data: { rawMaterialId: dto.raw_material_id, movementType: 'adjustment', quantity: D(dto.quantity), recordedById: actorId },
     });
+    if (dto.quantity < 0) await this.alertIfLow([{ id: dto.raw_material_id, quantity: -dto.quantity }]);
     await this.audit.log({ actorUserId: actorId, action: 'stock.adjust', entityType: 'raw_material', entityId: dto.raw_material_id, after: { quantity: dto.quantity, reason: dto.reason } });
     return { id: m.id };
   }
@@ -179,6 +206,7 @@ export class InventoryService {
         }
         return created;
       });
+      await this.alertIfLow(materials.map((m) => ({ id: m.raw_material_id, quantity: Number(m.quantity) })));
       return { id: run.id, run_date: date, run_type: dto.run_type };
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {

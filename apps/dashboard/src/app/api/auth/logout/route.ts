@@ -1,7 +1,9 @@
 import { cookies } from 'next/headers';
+import { crossSiteBlocked, isSameOrigin } from '@/lib/server/same-origin';
 import { API_URL, REFRESH, clearAuthCookies } from '@/lib/server/upstream';
 
-export async function POST() {
+export async function POST(req: Request) {
+  if (!isSameOrigin(req)) return crossSiteBlocked();
   const jar = await cookies();
   const refresh = jar.get(REFRESH)?.value;
   if (refresh) {

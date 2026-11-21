@@ -120,11 +120,25 @@ export class NotificationsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async list(userId: string) {
-    const rows = await this.prisma.notification.findMany({
-      where: { userId, OR: [{ scheduledFor: null }, { scheduledFor: { lte: new Date() } }] },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
-    return { data: rows.map((n) => ({ id: n.id, type: n.type, title: n.title, body: n.body, created_at: n.createdAt.toISOString() })) };
+    const visible = { userId, OR: [{ scheduledFor: null }, { scheduledFor: { lte: new Date() } }] };
+    const [rows, unread] = await Promise.all([
+      this.prisma.notification.findMany({ where: visible, orderBy: { createdAt: 'desc' }, take: 50 }),
+      this.prisma.notification.count({ where: { ...visible, readAt: null } }),
+    ]);
+    return {
+      unread,
+      data: rows.map((n) => ({ id: n.id, type: n.type, title: n.title, body: n.body, target: n.target, read: n.readAt !== null, created_at: n.createdAt.toISOString() })),
+    };
+  }
+
+  /** Opening a notification marks it read. Only the person it was sent to can do this. */
+  async markRead(userId: string, id: string) {
+    await this.prisma.notification.updateMany({ where: { id, userId, readAt: null }, data: { readAt: new Date() } });
+    return { read: true };
+  }
+
+  async markAllRead(userId: string) {
+    const r = await this.prisma.notification.updateMany({ where: { userId, readAt: null }, data: { readAt: new Date() } });
+    return { read: r.count };
   }
 }

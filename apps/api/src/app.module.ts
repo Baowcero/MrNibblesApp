@@ -12,6 +12,7 @@ import { AuditModule } from './audit/audit.module.js';
 import { BookingModule } from './booking/booking.module.js';
 import { CatalogModule } from './catalog/catalog.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { RateLimitGuard } from './common/rate-limit.guard.js';
 import { ErrorEnvelopeFilter } from './common/error-envelope.filter.js';
 import { JwtAuthGuard } from './common/jwt-auth.guard.js';
 import { RolesGuard } from './common/roles.guard.js';
@@ -44,6 +45,7 @@ import { StorageModule } from './storage/storage.module.js';
     // Order matters: log in first, then check the role.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_FILTER, useClass: ErrorEnvelopeFilter },
   ],
 })

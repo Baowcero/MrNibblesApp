@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSession } from '@/lib/session';
 import { useQuery } from '@/lib/use-query';
-import { countdown, formatDate, formatNaira } from '@/lib/format';
-import { Badge, Body, Button, Card, ErrorNote, H1, H2, Loading, ORDER_STATUS, Row, Screen } from '@/components/ui';
-import { color, font } from '@/theme';
+import { countdown, formatDate, greeting } from '@/lib/format';
+import { OrderCard, type OrderRow } from '@/components/order-card';
+import { Avatar, Body, Button, Card, ErrorNote, H2, Icon, IconButton, Loading, ORDER_STATUS, Row, Screen, SectionHead } from '@/components/ui';
+import { color, font, tnum } from '@/theme';
 
 interface Booking { delivery_date: string; is_same_day: boolean; seconds_until_close: number; delivery_window: { start: string; end: string }; message: string }
-interface OrderRow { id: string; order_no: string; status: string; delivery_date: string; total_kobo: number; bread_count: number }
 
 export default function Home() {
   const { user, reload } = useSession();
@@ -28,16 +28,20 @@ export default function Home() {
   const refresh = () => { void booking.reload(); void orders.reload(); void reload(); };
   const status = user?.customer?.status;
   const closed = !!booking.data && booking.data.is_same_day && left === 0;
-  const latest = orders.data?.data[0];
+  const recent = orders.data?.data ?? [];
+  const name = user?.customer?.business_name ?? user?.full_name;
 
   return (
     <Screen onRefresh={refresh} refreshing={booking.loading || orders.loading}>
       <Row>
-        <View style={{ flex: 1 }}>
-          <Body muted>Hello,</Body>
-          <H1>{user?.customer?.business_name ?? user?.full_name}</H1>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+          <Avatar name={name} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: font.semi, fontSize: 13, color: color.muted }}>{greeting()}</Text>
+            <Text style={{ fontFamily: font.display, fontSize: 21, color: color.navy, letterSpacing: -0.4 }} numberOfLines={1}>{name}</Text>
+          </View>
         </View>
-        <Link href="/notifications" accessibilityLabel="Notifications" style={{ fontSize: 26, padding: 8 }}>🔔</Link>
+        <IconButton name="bell" label="Notifications" onPress={() => router.push('/notifications')} />
       </Row>
 
       {status === 'pending_approval' && <Card tone="warn"><H2>Waiting for approval</H2><Body>Our team is checking your account. You will get a notification as soon as you can order.</Body></Card>}
@@ -46,27 +50,28 @@ export default function Home() {
 
       {active && (
         booking.error ? <ErrorNote message={booking.error} onRetry={booking.reload} /> : !booking.data ? <Loading /> : (
-          <Card tone={closed ? 'orange' : 'brand'}>
-            <Body muted>{booking.data.is_same_day ? 'Order closes in' : 'Next delivery'}</Body>
-            <Text style={{ fontFamily: font.display, fontSize: 44, color: color.navy }} accessibilityLiveRegion="polite">
+          <View style={{ backgroundColor: color.side, borderRadius: 24, padding: 22, overflow: 'hidden', gap: 6 }}>
+            <View style={{ position: 'absolute', top: -60, right: -50, width: 190, height: 190, borderRadius: 95, backgroundColor: color.orange, opacity: 0.2 }} />
+            <View style={{ position: 'absolute', bottom: -80, left: -60, width: 200, height: 200, borderRadius: 100, backgroundColor: color.brand, opacity: 0.25 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Icon name="clock" size={15} tint="#c9d5f2" />
+              <Text style={{ fontFamily: font.semi, fontSize: 13.5, color: '#c9d5f2' }}>{booking.data.is_same_day ? 'Order closes in' : 'Next delivery'}</Text>
+            </View>
+            <Text style={[{ fontFamily: font.display, fontSize: 46, color: '#fff', letterSpacing: -1 }, tnum]} accessibilityLiveRegion="polite">
               {booking.data.is_same_day && !closed ? countdown(left) : formatDate(booking.data.delivery_date)}
             </Text>
-            <Body>{closed ? `Booking for today is closed. Your order will go out on ${formatDate(booking.data.delivery_date)}.` : booking.data.message}</Body>
-            <Button title="Order bread" onPress={() => router.push('/new-order')} style={{ marginTop: 16 }} />
-          </Card>
+            <Text style={{ fontFamily: font.body, fontSize: 14.5, lineHeight: 21, color: '#dbe4fa' }}>
+              {closed ? `Booking for today is closed. Your order will go out on ${formatDate(booking.data.delivery_date)}.` : booking.data.message}
+            </Text>
+            <Button title="Order bread" variant="accent" arrow onPress={() => router.push('/new-order')} style={{ marginTop: 14 }} />
+          </View>
         )
       )}
 
-      {active && latest && (
-        <View style={{ gap: 10 }}>
-          <Row><H2>Latest order</H2><Link href="/orders" style={{ fontFamily: font.bodyBold, color: color.brand }}>See all</Link></Row>
-          <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/order/[id]', params: { id: latest.id } })}>
-            <Card>
-              <Row><Text style={{ fontFamily: font.bodyBold, fontSize: 16, color: color.navy }}>{latest.order_no}</Text><Badge text={ORDER_STATUS[latest.status]?.label ?? latest.status} tone={ORDER_STATUS[latest.status]?.tone} /></Row>
-              <Body muted>{latest.bread_count} loaves · {formatDate(latest.delivery_date)}</Body>
-              <Text style={{ fontFamily: font.display, fontSize: 20, color: color.navy, marginTop: 6 }}>{formatNaira(latest.total_kobo)}</Text>
-            </Card>
-          </Pressable>
+      {active && recent.length > 0 && (
+        <View style={{ gap: 12 }}>
+          <SectionHead title="Recent orders" action="See all" onAction={() => router.push('/orders')} />
+          {recent.map((o) => <OrderCard key={o.id} o={o} onPress={() => router.push({ pathname: '/order/[id]', params: { id: o.id } })} />)}
         </View>
       )}
     </Screen>

@@ -1,4 +1,4 @@
-import { notifyRoles } from '../notifications/queue.js';
+import { notifyRoles, queueNotification } from '../notifications/queue.js';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomInt } from 'node:crypto';
@@ -155,13 +155,31 @@ export class OrdersService {
               idempotencyKey: paymentKey,
             },
           });
-          if (dto.payment_method === 'office_cash') {
-            await notifyRoles(tx, ['accounts', 'ceo'], {
+          const loaves = priced.lines.reduce((n, l) => n + l.quantity, 0);
+          const cash = dto.payment_method === 'office_cash';
+          // Every new order is news for sales, including ones for tomorrow that are not paid yet.
+          await notifyRoles(tx, ['sales', 'ceo'], {
+            type: 'order_status',
+            title: 'New order',
+            body: `${created.orderNo} · ${customer.businessName}: ${loaves} loaves for ${next.date}${dto.fulfilment === 'pickup' ? ' (pickup)' : ''}. ${cash ? 'Will pay cash at the office.' : 'Waiting for payment.'}`,
+            target: `order:${created.id}`,
+          });
+          if (cash) {
+            await notifyRoles(tx, ['accounts'], {
               type: 'order_status',
               title: 'Cash order placed',
               body: `${created.orderNo} from ${customer.businessName} will be paid in cash.`,
+              target: `order:${created.id}`,
             });
           }
+          // First step of the customer's own timeline.
+          await queueNotification(tx, {
+            userId,
+            type: 'order_status',
+            title: 'Order placed',
+            body: cash ? `Order ${created.orderNo} is received. Pay at the office to confirm it.` : `Order ${created.orderNo} is received. Pay to confirm it.`,
+            target: `order:${created.id}`,
+          });
           return created;
         });
         return this.detail(userId, order.id);

@@ -3,7 +3,7 @@
 // records. Customers sign up themselves with their own phone, pick their business, and staff approve.
 import { PrismaClient, RoleCode } from '@prisma/client';
 import argon2 from 'argon2';
-import data from './seed-data.json';
+import data from './seed-data.json' with { type: 'json' };
 
 const prisma = new PrismaClient();
 
@@ -17,15 +17,27 @@ async function main() {
     { code: 'sliced', name: 'Sliced bread' },
     { code: 'unsliced', name: 'Unsliced bread' },
   ]) {
-    await prisma.product.upsert({ where: { code: p.code }, update: {}, create: p });
+    await prisma.product.upsert({
+      where: { code: p.code },
+      update: {},
+      create: p,
+    });
   }
 
   // ₦1,000 per loaf for both products (confirmed by the client). Prices are kobo.
   for (const code of ['sliced', 'unsliced']) {
     const product = await prisma.product.findUniqueOrThrow({ where: { code } });
-    if ((await prisma.productPrice.count({ where: { productId: product.id } })) === 0) {
+    if (
+      (await prisma.productPrice.count({
+        where: { productId: product.id },
+      })) === 0
+    ) {
       await prisma.productPrice.create({
-        data: { productId: product.id, unitPriceKobo: 100_000n, effectiveFrom: new Date('2026-01-01T00:00:00Z') },
+        data: {
+          productId: product.id,
+          unitPriceKobo: 100_000n,
+          effectiveFrom: new Date('2026-01-01T00:00:00Z'),
+        },
       });
     }
   }
@@ -45,10 +57,16 @@ async function main() {
 
   // Pre-loaded customers have no user yet. They claim their record at sign-up.
   for (const c of data.customers) {
-    const exists = await prisma.customer.findFirst({ where: { businessName: c.businessName } });
+    const exists = await prisma.customer.findFirst({
+      where: { businessName: c.businessName },
+    });
     if (!exists) {
       await prisma.customer.create({
-        data: { businessName: c.businessName, status: 'unclaimed', source: 'import' },
+        data: {
+          businessName: c.businessName,
+          status: 'unclaimed',
+          source: 'import',
+        },
       });
     }
   }
@@ -58,8 +76,12 @@ async function main() {
   const ceoPhone = process.env.SEED_CEO_PHONE;
   const ceoPassword = process.env.SEED_CEO_PASSWORD;
   if (ceoPhone && ceoPassword) {
-    const ceoRole = await prisma.role.findUniqueOrThrow({ where: { code: 'ceo' } });
-    const existing = await prisma.user.findUnique({ where: { phone: ceoPhone } });
+    const ceoRole = await prisma.role.findUniqueOrThrow({
+      where: { code: 'ceo' },
+    });
+    const existing = await prisma.user.findUnique({
+      where: { phone: ceoPhone },
+    });
     if (!existing) {
       await prisma.user.create({
         data: {
@@ -72,7 +94,9 @@ async function main() {
       });
     }
   } else {
-    console.log('SEED_CEO_PHONE / SEED_CEO_PASSWORD not set: no staff account created.');
+    console.log(
+      'SEED_CEO_PHONE / SEED_CEO_PASSWORD not set: no staff account created.',
+    );
   }
 
   if ((await prisma.bookingSetting.count()) === 0) {
@@ -82,8 +106,10 @@ async function main() {
   }
 }
 
-main().then(() => prisma.$disconnect()).catch(async (e) => {
-  console.error(e);
-  await prisma.$disconnect();
-  process.exit(1);
-});
+main()
+  .then(() => prisma.$disconnect())
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+    process.exit(1);
+  });
